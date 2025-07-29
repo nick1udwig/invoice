@@ -65,7 +65,7 @@
 }
 
 .description-col {
-  width: 35%;
+  width: 30%;
 }
 
 .quantity-col {
@@ -74,7 +74,7 @@
 }
 
 .rate-col {
-  width: 15%;
+  width: 20%;
   text-align: center;
 }
 
@@ -186,7 +186,7 @@
   padding-left: 1.75rem;
   padding-right: 0.5rem;
   text-align: right;
-  min-width: 80px;
+  min-width: 120px;
 }
 
 .btn-icon {

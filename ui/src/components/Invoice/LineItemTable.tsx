@@ -79,15 +79,60 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
       const blob = await getReceipt(receiptPath);
       const url = URL.createObjectURL(blob);
       
-      // Open in new tab
-      const link = document.createElement('a');
-      link.href = url;
-      link.target = '_blank';
-      link.download = fileName;
-      link.click();
+      // Determine if it's a PDF or image
+      const isPDF = fileName.toLowerCase().endsWith('.pdf');
       
-      // Clean up
-      setTimeout(() => URL.revokeObjectURL(url), 100);
+      if (isPDF) {
+        // For PDFs, open in a new tab/window
+        window.open(url, '_blank');
+      } else {
+        // For images, create a preview window
+        const previewWindow = window.open('', '_blank', 'width=800,height=600');
+        if (previewWindow) {
+          previewWindow.document.write(`
+            <!DOCTYPE html>
+            <html>
+            <head>
+              <title>${fileName}</title>
+              <style>
+                body {
+                  margin: 0;
+                  padding: 20px;
+                  background: #f0f0f0;
+                  display: flex;
+                  justify-content: center;
+                  align-items: center;
+                  min-height: 100vh;
+                }
+                img {
+                  max-width: 100%;
+                  max-height: 90vh;
+                  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+                }
+                .container {
+                  text-align: center;
+                }
+                .filename {
+                  margin-bottom: 20px;
+                  font-family: Arial, sans-serif;
+                  color: #333;
+                }
+              </style>
+            </head>
+            <body>
+              <div class="container">
+                <h2 class="filename">${fileName}</h2>
+                <img src="${url}" alt="${fileName}" />
+              </div>
+            </body>
+            </html>
+          `);
+          previewWindow.document.close();
+        }
+      }
+      
+      // Clean up after a delay
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch (error) {
       console.error('Failed to view receipt:', error);
       alert('Failed to load receipt. Please try again.');
