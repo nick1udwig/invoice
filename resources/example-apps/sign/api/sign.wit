@@ -1,0 +1,18 @@
+interface sign {
+use standard.{address};
+
+    // Function signature for: sign (local)
+    record sign-signature-local {
+        target: address,
+        message: list<u8>,
+        returning: result<list<u8>, string>
+    }
+
+    // Function signature for: verify (local)
+    record verify-signature-local {
+        target: address,
+        message: list<u8>,
+        signature: list<u8>,
+        returning: result<bool, string>
+    }
+}

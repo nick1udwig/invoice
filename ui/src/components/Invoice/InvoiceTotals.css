@@ -1,0 +1,133 @@
+.invoice-totals {
+  background: #f8f8f8;
+  border: 1px solid #e0e0e0;
+  border-radius: 8px;
+  padding: 1.5rem;
+  position: relative;
+}
+
+.totals-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+}
+
+.totals-row:not(:last-child) {
+  border-bottom: 1px solid #e8e8e8;
+}
+
+.totals-label {
+  font-weight: 500;
+  color: #666;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.totals-value {
+  font-weight: 500;
+  color: #333;
+  text-align: right;
+}
+
+.total-row {
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 2px solid #ddd;
+}
+
+.total-row .totals-label {
+  font-weight: 600;
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.total-amount {
+  font-weight: 700;
+  color: #1976d2;
+  font-size: 1.25rem;
+}
+
+.edit-button {
+  background: none;
+  border: none;
+  color: #1976d2;
+  cursor: pointer;
+  font-size: 0.875rem;
+  padding: 0.125rem 0.25rem;
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.edit-button:hover {
+  background-color: rgba(25, 118, 210, 0.08);
+}
+
+.inline-input {
+  width: 60px;
+  padding: 0.25rem;
+  border: 1px solid #1976d2;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  text-align: center;
+  margin-left: 0.25rem;
+}
+
+.inline-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+}
+
+.discount-input-wrapper {
+  position: relative;
+  display: inline-block;
+  margin-left: 0.25rem;
+}
+
+.discount-input-wrapper .currency-symbol {
+  position: absolute;
+  left: 0.25rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: #666;
+  font-size: 0.875rem;
+  pointer-events: none;
+}
+
+.discount-input {
+  width: 80px;
+  padding-left: 1rem;
+  text-align: right;
+}
+
+.paid-stamp {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) rotate(-15deg);
+  font-size: 3rem;
+  font-weight: 700;
+  color: rgba(76, 175, 80, 0.3);
+  letter-spacing: 0.1em;
+  pointer-events: none;
+  z-index: 1;
+}
+
+@media (max-width: 600px) {
+  .invoice-totals {
+    padding: 1rem;
+  }
+  
+  .totals-row {
+    padding: 0.375rem 0;
+  }
+  
+  .total-amount {
+    font-size: 1.125rem;
+  }
+  
+  .paid-stamp {
+    font-size: 2rem;
+  }
+}

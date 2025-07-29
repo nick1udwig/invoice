@@ -1,0 +1,18 @@
+interface id {
+use standard.{address};
+
+    // Function signature for: sign (http)
+    record sign-signature-http {
+        target: string,
+        message: list<u8>,
+        returning: result<list<u8>, string>
+    }
+
+    // Function signature for: verify (http)
+    record verify-signature-http {
+        target: string,
+        message: list<u8>,
+        signature: list<u8>,
+        returning: result<bool, string>
+    }
+}

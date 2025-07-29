@@ -1,0 +1,167 @@
+.invoice-editor {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.invoice-editor-loading,
+.invoice-editor-error {
+  text-align: center;
+  padding: 3rem;
+  font-size: 1.1rem;
+}
+
+.invoice-editor-error {
+  color: #d32f2f;
+}
+
+.invoice-editor-toolbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e0e0e0;
+}
+
+.toolbar-left,
+.toolbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.unsaved-indicator {
+  color: #f57c00;
+  font-size: 0.875rem;
+}
+
+.invoice-content {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  padding: 3rem;
+}
+
+.invoice-parties {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3rem;
+  margin-bottom: 3rem;
+}
+
+@media (max-width: 768px) {
+  .invoice-parties {
+    grid-template-columns: 1fr;
+  }
+}
+
+.from-section h3,
+.to-section h3 {
+  margin: 0 0 1rem 0;
+  color: #666;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.contact-info {
+  line-height: 1.6;
+}
+
+.contact-info strong {
+  color: #333;
+  font-size: 1.1rem;
+}
+
+.contact-info .address {
+  white-space: pre-line;
+}
+
+.invoice-footer {
+  display: grid;
+  grid-template-columns: 1fr 400px;
+  gap: 3rem;
+  margin-top: 3rem;
+}
+
+@media (max-width: 768px) {
+  .invoice-footer {
+    grid-template-columns: 1fr;
+  }
+}
+
+.notes-section h4 {
+  margin: 0 0 1rem 0;
+  color: #666;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.notes-section textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  resize: vertical;
+  min-height: 100px;
+}
+
+.notes-section textarea:focus {
+  outline: none;
+  border-color: #1976d2;
+}
+
+.payment-info {
+  margin-top: 3rem;
+  padding-top: 2rem;
+  border-top: 1px solid #e0e0e0;
+}
+
+.payment-info h4 {
+  margin: 0 0 1rem 0;
+  color: #666;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.payment-info p {
+  white-space: pre-line;
+  line-height: 1.6;
+}
+
+.btn {
+  padding: 0.5rem 1rem;
+  border: none;
+  border-radius: 4px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+  font-weight: 500;
+}
+
+.btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: #1976d2;
+  color: white;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: #1565c0;
+}
+
+.btn-secondary {
+  background-color: #f5f5f5;
+  color: #333;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #e0e0e0;
+}

@@ -1,0 +1,79 @@
+.invoice-header {
+  margin-bottom: 2rem;
+  padding-bottom: 2rem;
+  border-bottom: 2px solid #e0e0e0;
+}
+
+.invoice-title-section {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 1.5rem;
+}
+
+.invoice-title-section h1 {
+  margin: 0;
+  font-size: 2.5rem;
+  color: #333;
+  font-weight: 300;
+  letter-spacing: 0.05em;
+}
+
+.invoice-number {
+  font-size: 1.25rem;
+  color: #666;
+  font-weight: 500;
+}
+
+.invoice-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1.5rem;
+}
+
+.meta-item label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #666;
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.meta-item input,
+.meta-item select {
+  width: 100%;
+  padding: 0.5rem;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  font-size: 1rem;
+  transition: border-color 0.2s ease;
+}
+
+.meta-item input:focus,
+.meta-item select:focus {
+  outline: none;
+  border-color: #1976d2;
+}
+
+.meta-item select {
+  cursor: pointer;
+  background-color: white;
+}
+
+@media (max-width: 768px) {
+  .invoice-title-section {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
+  
+  .invoice-title-section h1 {
+    font-size: 2rem;
+  }
+  
+  .invoice-meta {
+    grid-template-columns: 1fr;
+  }
+}

@@ -1,0 +1,54 @@
+# 250729
+
+## invoice
+
+Make an invoice-making Hyperware app
+
+There are two pages:
+- Settings for future invoices / splash page
+- Invoice
+
+### Settings for future invoices / splash page
+
+- Define parameters for the invoice:
+  - Name/company of invoicer
+  - Address & contact info of invoicer
+  - Optional: logo of invoicer
+  - Name/company of invoicee
+  - Address & contact info of invoicee
+  - Optional: payment info
+  - Optional: payment info image (e.g. QR code)
+
+- Button to "Create New Invoice"
+- menu to click into past invoices
+
+### Invoice
+
+Page to edit an invoice.
+It is laid out like the invoice will look.
+Everything is exactly like invoice will look, but editable fields allow adding:
+- Description of products/services provided
+- Quantity/hours
+- Rate/price per unit
+- Discounts
+
+- Line item totals, subtotals, totals are all automatically computed
+- Invoice number is automatically generated
+
+- Button to "Generate PDF"
+- Button to "Go back" (to splash screen)
+- Button to "Undo" & "Redo"
+
+### Persistence
+
+- Persist data to VFS: each invoice has its own directory within the `invoice/` drive
+- Data is in JSON
+- PDF, when requested, is generated from the JSON (and HTML if useful to use it)
+- Both stored in `invoice/<invoice-date>/<invoice-name>` drive
+- At your option, store JSON either in one giant JSON file for the whole invoice OR in smaller JSON files that correspond to the different editable fields
+- Invoices can be optionally named -- If not named, they are identified by their automatically generated invoice number (change the directory name on a rename)
+- Directories must be managed without user intervention: changing date means possibly creating the new invoice date dir; moving the invoice name into that dir
+- Persist the current invoice to disk every 1s if it is in an edited state
+- Persist history of changes to process state: this will be exposed with undo/redo buttons
+
+- The files and process state are the source of truth
