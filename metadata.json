@@ -1,5 +1,5 @@
 {
-  "name": "Invoice",
+  "name": "invoice",
   "description": "Generate invoices",
   "image": "https://raw.githubusercontent.com/nick1udwig/invoice/refs/heads/master/ui/public/invoice256.png",
   "properties": {
