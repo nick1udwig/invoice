@@ -5,15 +5,19 @@ import './InvoiceHeader.css';
 interface InvoiceHeaderProps {
   invoice: Invoice;
   onUpdate: (updates: Partial<Invoice>) => void;
+  onUpdateImmediate?: (updates: Partial<Invoice>) => void;
 }
 
-const InvoiceHeader: React.FC<InvoiceHeaderProps> = ({ invoice, onUpdate }) => {
+const InvoiceHeader: React.FC<InvoiceHeaderProps> = ({ invoice, onUpdate, onUpdateImmediate }) => {
+  // Use immediate updates for dropdowns and dates, debounced for text fields
+  const updateImmediate = onUpdateImmediate || onUpdate;
+  
   const handleStatusChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    onUpdate({ status: e.target.value as InvoiceStatus });
+    updateImmediate({ status: e.target.value as InvoiceStatus });
   };
 
   const handleDateChange = (field: 'date' | 'due_date', value: string) => {
-    onUpdate({ [field]: value || null });
+    updateImmediate({ [field]: value || null });
   };
 
   return (

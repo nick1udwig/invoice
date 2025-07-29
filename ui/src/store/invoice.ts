@@ -17,12 +17,14 @@ interface InvoiceStore extends InvoiceState {
   // Current invoice actions
   loadInvoice: (id: string) => Promise<void>;
   updateInvoice: (updates: Partial<Invoice>) => Promise<void>;
+  updateInvoiceImmediate: (updates: Partial<Invoice>) => Promise<void>;
   clearCurrentInvoice: () => void;
   fetchCurrentInvoice: () => Promise<void>;
   
   // Line item actions
   addLineItem: () => Promise<void>;
   updateLineItem: (itemId: string, updates: Partial<LineItem>) => Promise<void>;
+  updateLineItemImmediate: (itemId: string, updates: Partial<LineItem>) => Promise<void>;
   deleteLineItem: (itemId: string) => Promise<void>;
   reorderLineItems: (itemIds: string[]) => Promise<void>;
   
@@ -37,6 +39,9 @@ interface InvoiceStore extends InvoiceState {
   // Auto-save
   startAutosave: () => void;
   stopAutosave: () => void;
+  
+  // Debouncing timers
+  updateTimers: Map<string, NodeJS.Timeout>;
 }
 
 export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
@@ -55,6 +60,7 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   canUndo: false,
   canRedo: false,
   autosaveTimer: null,
+  updateTimers: new Map(),
   
   // Settings actions
   fetchSettings: async () => {
@@ -162,6 +168,60 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   },
   
   updateInvoice: async (updates) => {
+    const { currentInvoice, updateTimers } = get();
+    if (!currentInvoice) return;
+    
+    // Update local state immediately for optimistic UI
+    const optimisticInvoice = { ...currentInvoice, ...updates };
+    set({ currentInvoice: optimisticInvoice });
+    
+    // Clear existing timer for invoice updates
+    const timerId = 'invoice';
+    if (updateTimers.has(timerId)) {
+      clearTimeout(updateTimers.get(timerId)!);
+    }
+    
+    // Set new timer for debounced API call
+    const timer = setTimeout(async () => {
+      try {
+        const invoice = await invoiceApi.updateInvoice(optimisticInvoice);
+        set({ 
+          currentInvoice: invoice,
+          hasUnsavedChanges: true
+        });
+        get().checkUndoRedo();
+        
+        // Update invoice in list
+        const { invoices } = get();
+        const index = invoices.findIndex(inv => inv.id === invoice.id);
+        if (index !== -1) {
+          const newInvoices = [...invoices];
+          newInvoices[index] = {
+            id: invoice.id,
+            number: invoice.number,
+            name: invoice.name,
+            date: invoice.date,
+            total: invoice.line_items.reduce((sum, item) => {
+              const lineTotal = item.quantity * item.rate;
+              const lineDiscount = lineTotal * (item.discount_percent / 100);
+              return sum + (lineTotal - lineDiscount);
+            }, 0),
+            status: invoice.status
+          };
+          set({ invoices: newInvoices });
+        }
+      } catch (error) {
+        set({ currentInvoiceError: error instanceof Error ? error.message : String(error) });
+        throw error;
+      } finally {
+        updateTimers.delete(timerId);
+      }
+    }, 750); // 750ms debounce delay
+    
+    updateTimers.set(timerId, timer);
+  },
+  
+  updateInvoiceImmediate: async (updates) => {
     const { currentInvoice } = get();
     if (!currentInvoice) return;
     
@@ -200,6 +260,11 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   },
   
   clearCurrentInvoice: () => {
+    const { updateTimers } = get();
+    // Clear all pending update timers
+    updateTimers.forEach(timer => clearTimeout(timer));
+    updateTimers.clear();
+    
     get().stopAutosave();
     set({ currentInvoice: null, hasUnsavedChanges: false });
   },
@@ -237,6 +302,45 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   },
   
   updateLineItem: async (itemId, updates) => {
+    const { currentInvoice, updateTimers } = get();
+    if (!currentInvoice) return;
+    
+    const item = currentInvoice.line_items.find(i => i.id === itemId);
+    if (!item) return;
+    
+    // Update local state immediately for optimistic UI
+    const optimisticLineItems = currentInvoice.line_items.map(i => 
+      i.id === itemId ? { ...i, ...updates } : i
+    );
+    set({ 
+      currentInvoice: { ...currentInvoice, line_items: optimisticLineItems }
+    });
+    
+    // Clear existing timer for this line item
+    const timerId = `line-item-${itemId}`;
+    if (updateTimers.has(timerId)) {
+      clearTimeout(updateTimers.get(timerId)!);
+    }
+    
+    // Set new timer for debounced API call
+    const timer = setTimeout(async () => {
+      try {
+        const updatedItem = { ...item, ...updates };
+        const invoice = await invoiceApi.updateLineItem(itemId, updatedItem);
+        set({ currentInvoice: invoice, hasUnsavedChanges: true });
+        get().checkUndoRedo();
+      } catch (error) {
+        set({ currentInvoiceError: error instanceof Error ? error.message : String(error) });
+        throw error;
+      } finally {
+        updateTimers.delete(timerId);
+      }
+    }, 500); // 500ms debounce delay for line items
+    
+    updateTimers.set(timerId, timer);
+  },
+  
+  updateLineItemImmediate: async (itemId, updates) => {
     const { currentInvoice } = get();
     if (!currentInvoice) return;
     

@@ -14,6 +14,7 @@ const InvoiceEditor: React.FC = () => {
     canUndo,
     canRedo,
     updateInvoice,
+    updateInvoiceImmediate,
     generatePDF,
     undo,
     redo,
@@ -117,6 +118,7 @@ const InvoiceEditor: React.FC = () => {
         <InvoiceHeader 
           invoice={currentInvoice}
           onUpdate={updateInvoice}
+          onUpdateImmediate={updateInvoiceImmediate}
         />
         
         <div className="invoice-parties">

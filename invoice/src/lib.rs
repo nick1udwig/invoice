@@ -146,7 +146,7 @@ impl AppState {
         add_to_homepage("Invoice", Some(ICON), Some("/"), None);
 
         // Get our node identity
-        let our_node = our().node.clone();
+        let _our_node = our().node.clone();
 
         // Create the invoice VFS drive
         let package_id = our().package_id();
