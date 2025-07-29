@@ -24,7 +24,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use base64::{Engine as _, engine::general_purpose};
 
-// Invoice Data Models
+const ICON: &str = include_str!("./icon");
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
 pub struct InvoiceSettings {
@@ -143,18 +143,15 @@ impl AppState {
     #[init]
     async fn initialize(&mut self) {
         // Add your app to the Hyperware homepage
-        add_to_homepage("Invoice", Some("📄"), Some("/"), None);
+        add_to_homepage("Invoice", Some(ICON), Some("/"), None);
 
         // Get our node identity
         let our_node = our().node.clone();
-        println!("Invoice app initialized on node: {}", our_node);
 
         // Create the invoice VFS drive
         let package_id = our().package_id();
         match create_drive(package_id, "invoice", Some(5)) {
             Ok(drive_path) => {
-                println!("Created invoice drive at: {}", drive_path);
-
                 // Load settings if they exist
                 let settings_path = format!("{}/settings.json", drive_path);
                 match open_file(&settings_path, false, Some(5)) {
@@ -163,7 +160,6 @@ impl AppState {
                             Ok(data) => {
                                 if let Ok(settings) = serde_json::from_str::<InvoiceSettings>(&data) {
                                     self.settings = Some(settings);
-                                    println!("Loaded existing settings");
                                 }
                             }
                             Err(_) => println!("No existing settings found"),
@@ -269,18 +265,18 @@ impl AppState {
         let invoice_number = if let Some(ref mut settings) = self.settings {
             let number = format!("{}{:04}", settings.invoice_number_prefix, settings.next_invoice_number);
             settings.next_invoice_number += 1;
-            
+
             // Save updated settings to VFS
             let package_id = our().package_id();
             let drive_path = format!("/{}/invoice", package_id);
             let settings_path = format!("{}/settings.json", drive_path);
-            
+
             if let Ok(file) = create_file(&settings_path, Some(5)) {
                 if let Ok(data) = serde_json::to_vec(&settings) {
                     let _ = file.write(&data);
                 }
             }
-            
+
             number
         } else {
             format!("INV-{:04}", self.invoices.len() + 1)
@@ -698,7 +694,7 @@ impl AppState {
     }
 
     // Receipt Upload
-    
+
     #[http]
     async fn upload_receipt(&mut self, request_body: Vec<u8>) -> Result<String, String> {
         #[derive(Deserialize)]
@@ -707,15 +703,15 @@ impl AppState {
             file_name: String,
             file_data: Vec<u8>,
         }
-        
+
         let request: ReceiptUploadRequest = serde_json::from_slice(&request_body)
             .map_err(|e| format!("Invalid request: {}", e))?;
-        
+
         if let Some(ref mut invoice) = self.current_invoice {
             // Find the line item
             let item_index = invoice.line_items.iter().position(|item| item.id == request.item_id)
                 .ok_or("Line item not found")?;
-            
+
             // Save current state for undo
             let snapshot = InvoiceSnapshot {
                 invoice: invoice.clone(),
@@ -726,33 +722,33 @@ impl AppState {
                 self.undo_stack.remove(0);
             }
             self.redo_stack.clear();
-            
+
             // Save receipt file to VFS
             let package_id = our().package_id();
             let drive_path = format!("/{}/invoice", package_id);
-            
+
             // Create receipts directory for this invoice
             let invoice_dir = if let Some(ref name) = invoice.name {
                 name.clone()
             } else {
                 invoice.number.clone()
             };
-            
+
             let receipts_dir = format!("{}/{}/{}/receipts", drive_path, invoice.date, invoice_dir);
             let _ = open_dir(&receipts_dir, true, Some(5));
-            
+
             // Save the receipt file
             let receipt_path = format!("{}/{}", receipts_dir, request.file_name);
             match create_file(&receipt_path, Some(5)) {
                 Ok(file) => {
                     file.write(&request.file_data)
                         .map_err(|e| format!("Failed to write receipt: {}", e))?;
-                    
+
                     // Update the line item with the receipt path
                     invoice.line_items[item_index].receipt_path = Some(receipt_path.clone());
-                    
+
                     // If the line item description is empty or default, use the filename without extension
-                    if invoice.line_items[item_index].description.is_empty() || 
+                    if invoice.line_items[item_index].description.is_empty() ||
                        invoice.line_items[item_index].description == "Click to add description" {
                         let file_stem = request.file_name
                             .rsplit('.')
@@ -762,22 +758,22 @@ impl AppState {
                             .rev()
                             .collect::<Vec<_>>()
                             .join(".");
-                        let file_stem = if file_stem.is_empty() { 
-                            request.file_name.clone() 
-                        } else { 
-                            file_stem 
+                        let file_stem = if file_stem.is_empty() {
+                            request.file_name.clone()
+                        } else {
+                            file_stem
                         };
                         invoice.line_items[item_index].description = file_stem;
                     }
-                    
+
                     invoice.updated_at = std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap()
                         .as_secs();
-                    
+
                     self.has_unsaved_changes = true;
                     self.save_current_invoice()?;
-                    
+
                     // Return the path
                     Ok(receipt_path)
                 }
@@ -787,12 +783,12 @@ impl AppState {
             Err("No invoice currently loaded".to_string())
         }
     }
-    
+
     #[http]
     async fn get_receipt(&self, request_body: String) -> Result<Vec<u8>, String> {
         let receipt_path: String = serde_json::from_str(&request_body)
             .map_err(|e| format!("Invalid receipt path: {}", e))?;
-        
+
         match open_file(&receipt_path, false, Some(5)) {
             Ok(file) => {
                 file.read()
@@ -905,7 +901,7 @@ impl AppState {
                 Ok(file) => {
                     file.write(html.as_bytes())
                         .map_err(|e| format!("Failed to write HTML: {}", e))?;
-                    
+
                     // Return both the path and the HTML content as JSON
                     let response = serde_json::json!({
                         "path": html_path,
@@ -1031,11 +1027,11 @@ impl AppState {
             } else {
                 invoice.number.clone()
             };
-            
+
             // Check if we need to rename the directory (if the name changed)
             // For now, we'll just save to the new location
             // In production, you'd want to move the old directory
-            
+
             let invoice_dir = format!("{}/{}", date_dir, invoice_dir_name);
             let _ = open_dir(&invoice_dir, true, Some(5));
 
@@ -1109,7 +1105,7 @@ impl AppState {
                         } else {
                             "application/octet-stream"
                         };
-                        
+
                         // Convert to base64
                         let base64_data = general_purpose::STANDARD.encode(&data);
                         embedded_receipts.push_str(&format!(
@@ -1235,24 +1231,24 @@ impl AppState {
         function showReceipt(index) {{
             const receiptDiv = document.getElementById('receipt-' + index);
             if (!receiptDiv) return;
-            
+
             const base64Data = receiptDiv.textContent;
             const mimeType = receiptDiv.getAttribute('data-mime');
             const dataUri = 'data:' + mimeType + ';base64,' + base64Data;
-            
+
             const modal = document.getElementById('receiptModal');
             const frame = document.getElementById('receiptFrame');
             frame.src = dataUri;
             modal.style.display = 'block';
         }}
-        
+
         function closeModal() {{
             const modal = document.getElementById('receiptModal');
             const frame = document.getElementById('receiptFrame');
             modal.style.display = 'none';
             frame.src = '';
         }}
-        
+
         window.onclick = function(event) {{
             const modal = document.getElementById('receiptModal');
             if (event.target === modal) {{
@@ -1304,7 +1300,7 @@ impl AppState {
                 let mut payment_html = String::new();
                 if let Some(ref payment_info) = invoice.payment_info {
                     payment_html.push_str(&format!("<div class='payment'><h3>Payment Information:</h3><p>{}</p>", payment_info));
-                    
+
                     // Add payment image if available
                     if let Some(ref payment_image_path) = invoice.payment_image_path {
                         if let Ok(file) = open_file(payment_image_path, false, Some(5)) {

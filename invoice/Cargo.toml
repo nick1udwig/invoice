@@ -6,9 +6,6 @@ process_macros = "0.1"
 serde_json = "1.0"
 wit-bindgen = "0.36.0"
 
-[dependencies.caller-utils]
-path = "../target/caller-utils"
-
 [dependencies.hyperprocess_macro]
 git = "https://github.com/hyperware-ai/hyperprocess-macro"
 rev = "f1cd5bb"

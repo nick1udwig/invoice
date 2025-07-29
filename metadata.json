@@ -1,18 +1,18 @@
 {
   "name": "Invoice",
   "description": "Generate invoices",
-  "image": "",
+  "image": "https://raw.githubusercontent.com/nick1udwig/invoice/refs/heads/master/ui/public/invoice256.png",
   "properties": {
     "package_name": "invoice",
     "current_version": "0.1.0",
     "publisher": "nick.hypr",
-    "mirrors": [],
+    "mirrors": ["nick.hypr", "nick1udwig.os", "diligence.os"],
     "code_hashes": {
-      "0.1.0": ""
+      "0.1.0": "9cf4ecbf4d87470160bbd75fb8013e125f223680c9a77a7188a8817950c79103"
     },
     "wit_version": 1,
     "dependencies": []
   },
-  "external_url": "",
+  "external_url": "https://github.com/nick1udwig/invoice",
   "animation_url": ""
 }

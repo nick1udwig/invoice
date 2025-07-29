@@ -892,22 +892,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "caller-utils"
-version = "0.1.0"
-dependencies = [
- "anyhow",
- "futures",
- "futures-util",
- "hyperware_app_common",
- "once_cell",
- "process_macros",
- "serde",
- "serde_json",
- "uuid",
- "wit-bindgen 0.41.0",
-]
-
-[[package]]
 name = "cc"
 version = "1.2.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1874,7 +1858,6 @@ dependencies = [
  "anyhow",
  "base64",
  "base64ct",
- "caller-utils",
  "hyperprocess_macro",
  "hyperware_app_common",
  "process_macros",
