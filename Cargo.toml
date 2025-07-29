@@ -6,5 +6,6 @@ panic = "abort"
 [workspace]
 members = [
     "invoice",
+    "target/caller-utils",
 ]
 resolver = "2"

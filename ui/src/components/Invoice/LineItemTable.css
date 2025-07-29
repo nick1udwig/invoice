@@ -63,17 +63,21 @@
 }
 
 .description-col {
-  width: 40%;
+  width: 35%;
 }
 
-.quantity-col,
+.quantity-col {
+  width: 10%;
+  text-align: center;
+}
+
 .rate-col {
-  width: 12%;
+  width: 15%;
   text-align: center;
 }
 
 .amount-col {
-  width: 12%;
+  width: 15%;
   text-align: right;
 }
 
@@ -83,7 +87,7 @@
 }
 
 .actions-col {
-  width: 5%;
+  width: 10%;
   text-align: center;
 }
 
@@ -173,8 +177,10 @@
 }
 
 .rate-input-wrapper .number-input {
-  padding-left: 1.5rem;
+  padding-left: 1.75rem;
+  padding-right: 0.5rem;
   text-align: right;
+  min-width: 80px;
 }
 
 .btn-icon {
@@ -212,17 +218,23 @@
     width: 30%;
   }
   
-  .quantity-col,
-  .rate-col,
+  .quantity-col {
+    width: 10%;
+  }
+  
+  .rate-col {
+    width: 18%;
+  }
+  
   .amount-col {
     width: 15%;
   }
   
   .receipt-col {
-    width: 18%;
+    width: 17%;
   }
   
   .actions-col {
-    width: 7%;
+    width: 10%;
   }
 }

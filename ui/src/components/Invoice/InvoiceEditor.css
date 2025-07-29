@@ -2,29 +2,6 @@
   max-width: 900px;
   margin: 0 auto;
   padding: 2rem;
-  min-height: 100vh;
-  transition: background-color 0.3s ease;
-}
-
-.invoice-editor.drag-over {
-  background-color: #e3f2fd;
-  border: 3px dashed #1976d2;
-  position: relative;
-}
-
-.invoice-editor.drag-over::after {
-  content: 'Drop receipt here to create a new line item';
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  font-size: 1.5rem;
-  color: #1976d2;
-  pointer-events: none;
-  background: rgba(255, 255, 255, 0.9);
-  padding: 1rem 2rem;
-  border-radius: 8px;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
 .invoice-editor-loading,

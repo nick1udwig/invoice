@@ -1,6 +1,5 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useInvoiceStore } from '../../store/invoice';
-import { uploadReceipt } from '../../utils/invoiceApi';
 import InvoiceHeader from './InvoiceHeader';
 import LineItemTable from './LineItemTable';
 import InvoiceTotals from './InvoiceTotals';
@@ -18,11 +17,8 @@ const InvoiceEditor: React.FC = () => {
     generatePDF,
     undo,
     redo,
-    addLineItem,
-    fetchCurrentInvoice
+    addLineItem
   } = useInvoiceStore();
-  
-  const [isDraggingOver, setIsDraggingOver] = useState(false);
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -42,57 +38,34 @@ const InvoiceEditor: React.FC = () => {
 
   const handleGeneratePDF = async () => {
     try {
-      const path = await generatePDF();
-      alert(`PDF generated at: ${path}`);
-    } catch (error) {
-      console.error('Failed to generate PDF:', error);
-    }
-  };
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingOver(true);
-  };
-
-  const handleDragLeave = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    // Check if we're leaving the editor entirely
-    const rect = e.currentTarget.getBoundingClientRect();
-    const x = e.clientX;
-    const y = e.clientY;
-    
-    if (x <= rect.left || x >= rect.right || y <= rect.top || y >= rect.bottom) {
-      setIsDraggingOver(false);
-    }
-  };
-
-  const handleDrop = async (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDraggingOver(false);
-    
-    const files = Array.from(e.dataTransfer.files);
-    const file = files[0];
-    
-    if (file && currentInvoice) {
-      // Create a new line item
-      const newInvoice = await addLineItem();
+      const result = await generatePDF();
+      const { html, filename } = JSON.parse(result);
       
-      // Upload receipt to the new line item
-      if (newInvoice && newInvoice.line_items.length > 0) {
-        const newItem = newInvoice.line_items[newInvoice.line_items.length - 1];
-        try {
-          await uploadReceipt(newItem.id, file);
-          await fetchCurrentInvoice();
-        } catch (error) {
-          console.error('Failed to upload receipt:', error);
-        }
-      }
+      // Create a blob from the HTML content
+      const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+      
+      // Create a download link
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      
+      // Trigger the download
+      document.body.appendChild(link);
+      link.click();
+      
+      // Clean up
+      setTimeout(() => {
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+      }, 100);
+      
+    } catch (error) {
+      console.error('Failed to generate invoice:', error);
+      alert('Failed to generate invoice. Please try again.');
     }
   };
+
 
   if (currentInvoiceLoading) {
     return <div className="invoice-editor-loading">Loading invoice...</div>;
@@ -107,12 +80,7 @@ const InvoiceEditor: React.FC = () => {
   }
 
   return (
-    <div 
-      className={`invoice-editor ${isDraggingOver ? 'drag-over' : ''}`}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
+    <div className="invoice-editor">
       <div className="invoice-editor-toolbar">
         <div className="toolbar-left">
           <button 
@@ -140,7 +108,7 @@ const InvoiceEditor: React.FC = () => {
             onClick={handleGeneratePDF}
             className="btn btn-primary"
           >
-            Generate PDF
+            Generate Invoice
           </button>
         </div>
       </div>

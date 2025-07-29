@@ -67,6 +67,10 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
       alert('Failed to upload receipt. Please try again.');
     } finally {
       setUploadingReceipt(null);
+      // Clear the file input
+      if (fileInputRefs.current[itemId]) {
+        fileInputRefs.current[itemId].value = '';
+      }
     }
   };
 

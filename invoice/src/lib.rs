@@ -269,6 +269,18 @@ impl AppState {
         let invoice_number = if let Some(ref mut settings) = self.settings {
             let number = format!("{}{:04}", settings.invoice_number_prefix, settings.next_invoice_number);
             settings.next_invoice_number += 1;
+            
+            // Save updated settings to VFS
+            let package_id = our().package_id();
+            let drive_path = format!("/{}/invoice", package_id);
+            let settings_path = format!("{}/settings.json", drive_path);
+            
+            if let Ok(file) = create_file(&settings_path, Some(5)) {
+                if let Ok(data) = serde_json::to_vec(&settings) {
+                    let _ = file.write(&data);
+                }
+            }
+            
             number
         } else {
             format!("INV-{:04}", self.invoices.len() + 1)
@@ -448,6 +460,7 @@ impl AppState {
 
         // Auto-save after 1 second
         self.last_save_time = timestamp;
+        self.save_current_invoice()?;
 
         serde_json::to_string(&updated_invoice)
             .map_err(|e| format!("Failed to serialize invoice: {}", e))
@@ -738,6 +751,25 @@ impl AppState {
                     // Update the line item with the receipt path
                     invoice.line_items[item_index].receipt_path = Some(receipt_path.clone());
                     
+                    // If the line item description is empty or default, use the filename without extension
+                    if invoice.line_items[item_index].description.is_empty() || 
+                       invoice.line_items[item_index].description == "Click to add description" {
+                        let file_stem = request.file_name
+                            .rsplit('.')
+                            .skip(1)
+                            .collect::<Vec<_>>()
+                            .into_iter()
+                            .rev()
+                            .collect::<Vec<_>>()
+                            .join(".");
+                        let file_stem = if file_stem.is_empty() { 
+                            request.file_name.clone() 
+                        } else { 
+                            file_stem 
+                        };
+                        invoice.line_items[item_index].description = file_stem;
+                    }
+                    
                     invoice.updated_at = std::time::SystemTime::now()
                         .duration_since(std::time::UNIX_EPOCH)
                         .unwrap()
@@ -858,8 +890,7 @@ impl AppState {
             // Generate HTML for the invoice
             let html = self.generate_invoice_html(invoice);
 
-            // For now, just save the HTML
-            // In a real implementation, you'd convert this to PDF
+            // Save the HTML to VFS
             let package_id = our().package_id();
             let drive_path = format!("/{}/invoice", package_id);
 
@@ -869,15 +900,22 @@ impl AppState {
                 invoice.number.clone()
             };
 
-            let pdf_path = format!("{}/{}/{}/invoice.pdf", drive_path, invoice.date, invoice_dir);
-            match create_file(&pdf_path, Some(5)) {
+            let html_path = format!("{}/{}/{}/invoice.html", drive_path, invoice.date, invoice_dir);
+            match create_file(&html_path, Some(5)) {
                 Ok(file) => {
-                    // For now, save HTML as "PDF" - in production, use proper PDF generation
                     file.write(html.as_bytes())
-                        .map_err(|e| format!("Failed to write PDF: {}", e))?;
-                    Ok(pdf_path)
+                        .map_err(|e| format!("Failed to write HTML: {}", e))?;
+                    
+                    // Return both the path and the HTML content as JSON
+                    let response = serde_json::json!({
+                        "path": html_path,
+                        "html": html,
+                        "filename": format!("invoice_{}.html", invoice.number)
+                    });
+                    serde_json::to_string(&response)
+                        .map_err(|e| format!("Failed to serialize response: {}", e))
                 }
-                Err(e) => Err(format!("Failed to create PDF file: {}", e)),
+                Err(e) => Err(format!("Failed to create invoice file: {}", e)),
             }
         } else {
             Err("No invoice currently loaded".to_string())
@@ -983,12 +1021,21 @@ impl AppState {
             let date_dir = format!("{}/{}", drive_path, invoice.date);
             let _ = open_dir(&date_dir, true, Some(5));
 
-            // Create invoice directory (use name if available, otherwise number)
+            // Determine the invoice directory name
             let invoice_dir_name = if let Some(ref name) = invoice.name {
-                name.clone()
+                if !name.is_empty() {
+                    name.clone()
+                } else {
+                    invoice.number.clone()
+                }
             } else {
                 invoice.number.clone()
             };
+            
+            // Check if we need to rename the directory (if the name changed)
+            // For now, we'll just save to the new location
+            // In production, you'd want to move the old directory
+            
             let invoice_dir = format!("{}/{}", date_dir, invoice_dir_name);
             let _ = open_dir(&invoice_dir, true, Some(5));
 
@@ -1023,6 +1070,29 @@ impl AppState {
         let after_discount = subtotal - invoice_discount;
         let tax = after_discount * invoice.tax_percent / 100.0;
         let total = after_discount + tax;
+
+        // Generate logo HTML if available
+        let logo_html = if let Some(ref logo_path) = invoice.invoicer.logo_path {
+            if let Ok(file) = open_file(logo_path, false, Some(5)) {
+                if let Ok(data) = file.read() {
+                    let mime_type = if logo_path.ends_with(".png") {
+                        "image/png"
+                    } else if logo_path.ends_with(".jpg") || logo_path.ends_with(".jpeg") {
+                        "image/jpeg"
+                    } else {
+                        "image/png" // default
+                    };
+                    let base64_data = general_purpose::STANDARD.encode(&data);
+                    format!(r#"<img src="data:{};base64,{}" alt="Company Logo" style="max-height: 80px; margin-bottom: 1rem; display: block;" />"#, mime_type, base64_data)
+                } else {
+                    String::new()
+                }
+            } else {
+                String::new()
+            }
+        } else {
+            String::new()
+        };
 
         // Collect all receipt data for embedding
         let mut embedded_receipts = String::new();
@@ -1087,6 +1157,7 @@ impl AppState {
 <body>
     <div class="header">
         <div class="invoicer">
+            {}
             <h2>{}</h2>
             <div class="contact-info">
                 <p>{}</p>
@@ -1192,6 +1263,7 @@ impl AppState {
 </body>
 </html>
         "#,
+            logo_html,
             invoice.invoicer.name,
             invoice.invoicer.company.as_ref().unwrap_or(&String::new()),
             invoice.invoicer.address,
@@ -1228,9 +1300,34 @@ impl AppState {
             invoice.notes.as_ref()
                 .map(|n| format!("<div class='notes'><h3>Notes:</h3><p>{}</p></div>", n))
                 .unwrap_or_default(),
-            invoice.payment_info.as_ref()
-                .map(|p| format!("<div class='payment'><h3>Payment Information:</h3><p>{}</p></div>", p))
-                .unwrap_or_default(),
+            {
+                let mut payment_html = String::new();
+                if let Some(ref payment_info) = invoice.payment_info {
+                    payment_html.push_str(&format!("<div class='payment'><h3>Payment Information:</h3><p>{}</p>", payment_info));
+                    
+                    // Add payment image if available
+                    if let Some(ref payment_image_path) = invoice.payment_image_path {
+                        if let Ok(file) = open_file(payment_image_path, false, Some(5)) {
+                            if let Ok(data) = file.read() {
+                                let mime_type = if payment_image_path.ends_with(".png") {
+                                    "image/png"
+                                } else if payment_image_path.ends_with(".jpg") || payment_image_path.ends_with(".jpeg") {
+                                    "image/jpeg"
+                                } else {
+                                    "image/png"
+                                };
+                                let base64_data = general_purpose::STANDARD.encode(&data);
+                                payment_html.push_str(&format!(
+                                    r#"<img src="data:{};base64,{}" alt="Payment QR Code" style="max-width: 200px; margin-top: 1rem; display: block;" />"#,
+                                    mime_type, base64_data
+                                ));
+                            }
+                        }
+                    }
+                    payment_html.push_str("</div>");
+                }
+                payment_html
+            },
             embedded_receipts
         )
     }
