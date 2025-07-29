@@ -1,6 +1,6 @@
 .invoice-totals {
-  background: #f8f8f8;
-  border: 1px solid #e0e0e0;
+  background: var(--table-header-bg);
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   padding: 1.5rem;
   position: relative;
@@ -14,12 +14,12 @@
 }
 
 .totals-row:not(:last-child) {
-  border-bottom: 1px solid #e8e8e8;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .totals-label {
   font-weight: 500;
-  color: #666;
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -27,32 +27,32 @@
 
 .totals-value {
   font-weight: 500;
-  color: #333;
+  color: var(--text-primary);
   text-align: right;
 }
 
 .total-row {
   margin-top: 0.5rem;
   padding-top: 1rem;
-  border-top: 2px solid #ddd;
+  border-top: 2px solid var(--border-color);
 }
 
 .total-row .totals-label {
   font-weight: 600;
-  color: #333;
+  color: var(--text-primary);
   font-size: 1.1rem;
 }
 
 .total-amount {
   font-weight: 700;
-  color: #1976d2;
+  color: var(--primary-color);
   font-size: 1.25rem;
 }
 
 .edit-button {
   background: none;
   border: none;
-  color: #1976d2;
+  color: var(--primary-color);
   cursor: pointer;
   font-size: 0.875rem;
   padding: 0.125rem 0.25rem;
@@ -61,22 +61,25 @@
 }
 
 .edit-button:hover {
-  background-color: rgba(25, 118, 210, 0.08);
+  background-color: var(--surface-hover);
 }
 
 .inline-input {
   width: 60px;
   padding: 0.25rem;
-  border: 1px solid #1976d2;
+  border: 1px solid var(--primary-color);
   border-radius: 4px;
   font-size: 0.875rem;
   text-align: center;
   margin-left: 0.25rem;
+  background-color: var(--surface);
+  color: var(--text-primary);
 }
 
 .inline-input:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(25, 118, 210, 0.2);
+  box-shadow: 0 0 0 2px var(--primary-color);
+  opacity: 0.3;
 }
 
 .discount-input-wrapper {
@@ -90,7 +93,7 @@
   left: 0.25rem;
   top: 50%;
   transform: translateY(-50%);
-  color: #666;
+  color: var(--text-secondary);
   font-size: 0.875rem;
   pointer-events: none;
 }
@@ -108,7 +111,8 @@
   transform: translate(-50%, -50%) rotate(-15deg);
   font-size: 3rem;
   font-weight: 700;
-  color: rgba(76, 175, 80, 0.3);
+  color: var(--success-color);
+  opacity: 0.3;
   letter-spacing: 0.1em;
   pointer-events: none;
   z-index: 1;

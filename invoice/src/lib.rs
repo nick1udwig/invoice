@@ -1125,26 +1125,91 @@ impl AppState {
 <html>
 <head>
     <style>
-        body {{ font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5dc; color: #333; }}
+        /* Light theme (default) */
+        :root {{
+            --primary-color: #4a6fa5;
+            --background: #f5f5dc;
+            --surface: #fffef9;
+            --text-primary: #333333;
+            --text-secondary: #666666;
+            --border-color: rgba(0, 0, 0, 0.15);
+            --table-header-bg: #e8e8d5;
+        }}
+        
+        /* Dark theme */
+        @media (prefers-color-scheme: dark) {{
+            :root {{
+                --primary-color: #6b8bc4;
+                --background: #1a1a1a;
+                --surface: #2a2a2a;
+                --text-primary: #e0e0e0;
+                --text-secondary: #b0b0b0;
+                --border-color: rgba(255, 255, 255, 0.15);
+                --table-header-bg: #333333;
+            }}
+        }}
+        
+        body {{ 
+            font-family: Arial, sans-serif; 
+            margin: 40px; 
+            background-color: var(--background); 
+            color: var(--text-primary); 
+        }}
         .header {{ display: flex; justify-content: space-between; margin-bottom: 40px; }}
         .invoice-details {{ text-align: right; }}
         .contact-info {{ margin-bottom: 30px; }}
-        table {{ width: 100%; border-collapse: collapse; margin: 20px 0; background-color: #fffef9; }}
-        th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }}
-        th {{ background-color: #ede8d5; }}
+        table {{ 
+            width: 100%; 
+            border-collapse: collapse; 
+            margin: 20px 0; 
+            background-color: var(--surface); 
+        }}
+        th, td {{ 
+            padding: 10px; 
+            text-align: left; 
+            border-bottom: 1px solid var(--border-color); 
+        }}
+        th {{ background-color: var(--table-header-bg); }}
         .totals {{ text-align: right; margin-top: 20px; }}
         .total-row {{ display: flex; justify-content: flex-end; margin: 5px 0; }}
         .total-label {{ width: 150px; }}
         .total-value {{ width: 100px; text-align: right; }}
-        .receipt-link {{ color: #4a6fa5; text-decoration: underline; cursor: pointer; font-size: 0.9em; }}
-        .receipt-link:hover {{ color: #2e4a7c; }}
-        .modal {{ display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); }}
-        .modal-content {{ margin: 2% auto; display: block; max-width: 90%; max-height: 90%; }}
-        .close {{ position: absolute; top: 15px; right: 35px; color: #f1f1f1; font-size: 40px; font-weight: bold; cursor: pointer; }}
+        .receipt-link {{ 
+            color: var(--primary-color); 
+            text-decoration: underline; 
+            cursor: pointer; 
+            font-size: 0.9em; 
+        }}
+        .receipt-link:hover {{ opacity: 0.8; }}
+        .modal {{ 
+            display: none; 
+            position: fixed; 
+            z-index: 1000; 
+            left: 0; 
+            top: 0; 
+            width: 100%; 
+            height: 100%; 
+            background-color: rgba(0,0,0,0.9); 
+        }}
+        .modal-content {{ 
+            margin: 2% auto; 
+            display: block; 
+            max-width: 90%; 
+            max-height: 90%; 
+        }}
+        .close {{ 
+            position: absolute; 
+            top: 15px; 
+            right: 35px; 
+            color: #f1f1f1; 
+            font-size: 40px; 
+            font-weight: bold; 
+            cursor: pointer; 
+        }}
         .close:hover {{ color: #bbb; }}
         @media print {{
             .receipt-link {{ display: none; }}
-            body {{ background-color: white; }}
+            body {{ background-color: white; color: black; }}
             table {{ background-color: white; }}
             th {{ background-color: #f5f5f5; }}
         }}

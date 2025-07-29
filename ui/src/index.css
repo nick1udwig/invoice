@@ -1,16 +1,20 @@
 /* Root CSS for Skeleton App */
 
 :root {
-  /* Color scheme - beige theme for invoice app */
+  /* Light theme (default) - beige theme for invoice app */
   --primary-color: #4a6fa5;
   --primary-hover: #3a5f95;
   --background: #f5f5dc;
   --surface: #fffef9;
+  --surface-hover: #f0f0e5;
   --text-primary: #333333;
   --text-secondary: #666666;
   --border-color: rgba(0, 0, 0, 0.15);
   --error-color: #d32f2f;
   --success-color: #388e3c;
+  --table-header-bg: #e8e8d5;
+  --table-row-hover: #f5f5e0;
+  --shadow-color: rgba(0, 0, 0, 0.1);
   
   font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
   line-height: 1.5;
@@ -24,6 +28,27 @@
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+/* Dark theme */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --primary-color: #6b8bc4;
+    --primary-hover: #5a7ab3;
+    --background: #1a1a1a;
+    --surface: #2a2a2a;
+    --surface-hover: #3a3a3a;
+    --text-primary: #e0e0e0;
+    --text-secondary: #b0b0b0;
+    --border-color: rgba(255, 255, 255, 0.15);
+    --error-color: #ef5350;
+    --success-color: #66bb6a;
+    --table-header-bg: #333333;
+    --table-row-hover: #2e2e2e;
+    --shadow-color: rgba(0, 0, 0, 0.3);
+    
+    color-scheme: dark;
+  }
 }
 
 * {
@@ -121,7 +146,7 @@ button {
 }
 
 button:hover {
-  background-color: #f0f0e5;
+  background-color: var(--surface-hover);
   border-color: var(--primary-color);
 }
 
@@ -151,5 +176,5 @@ button:hover {
 }
 
 .btn-secondary:hover {
-  background-color: #f0f0e5;
+  background-color: var(--surface-hover);
 }

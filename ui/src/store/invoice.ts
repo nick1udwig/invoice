@@ -173,7 +173,10 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
     
     // Update local state immediately for optimistic UI
     const optimisticInvoice = { ...currentInvoice, ...updates };
-    set({ currentInvoice: optimisticInvoice });
+    set({ 
+      currentInvoice: optimisticInvoice,
+      hasUnsavedChanges: true // Set immediately for user feedback
+    });
     
     // Clear existing timer for invoice updates
     const timerId = 'invoice';
@@ -186,8 +189,7 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
       try {
         const invoice = await invoiceApi.updateInvoice(optimisticInvoice);
         set({ 
-          currentInvoice: invoice,
-          hasUnsavedChanges: true
+          currentInvoice: invoice
         });
         get().checkUndoRedo();
         
@@ -313,7 +315,8 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
       i.id === itemId ? { ...i, ...updates } : i
     );
     set({ 
-      currentInvoice: { ...currentInvoice, line_items: optimisticLineItems }
+      currentInvoice: { ...currentInvoice, line_items: optimisticLineItems },
+      hasUnsavedChanges: true // Set immediately for user feedback
     });
     
     // Clear existing timer for this line item
@@ -327,7 +330,7 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
       try {
         const updatedItem = { ...item, ...updates };
         const invoice = await invoiceApi.updateLineItem(itemId, updatedItem);
-        set({ currentInvoice: invoice, hasUnsavedChanges: true });
+        set({ currentInvoice: invoice });
         get().checkUndoRedo();
       } catch (error) {
         set({ currentInvoiceError: error instanceof Error ? error.message : String(error) });
