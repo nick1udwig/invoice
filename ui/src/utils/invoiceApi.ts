@@ -203,3 +203,32 @@ export async function checkAutosave(): Promise<string> {
     throw error;
   }
 }
+
+// Receipt Management
+export async function uploadReceipt(itemId: string, file: File): Promise<string> {
+  try {
+    const buffer = await file.arrayBuffer();
+    const bytes = Array.from(new Uint8Array(buffer));
+    
+    const request = {
+      item_id: itemId,
+      file_name: file.name,
+      file_data: bytes
+    };
+    
+    return await api.uploadReceipt(Array.from(new TextEncoder().encode(JSON.stringify(request))));
+  } catch (error) {
+    console.error('Failed to upload receipt:', error);
+    throw error;
+  }
+}
+
+export async function getReceipt(receiptPath: string): Promise<Blob> {
+  try {
+    const bytes = await api.getReceipt(JSON.stringify(receiptPath));
+    return new Blob([new Uint8Array(bytes)]);
+  } catch (error) {
+    console.error('Failed to get receipt:', error);
+    throw error;
+  }
+}

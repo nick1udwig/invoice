@@ -18,6 +18,7 @@ interface InvoiceStore extends InvoiceState {
   loadInvoice: (id: string) => Promise<void>;
   updateInvoice: (updates: Partial<Invoice>) => Promise<void>;
   clearCurrentInvoice: () => void;
+  fetchCurrentInvoice: () => Promise<void>;
   
   // Line item actions
   addLineItem: () => Promise<void>;
@@ -201,6 +202,26 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   clearCurrentInvoice: () => {
     get().stopAutosave();
     set({ currentInvoice: null, hasUnsavedChanges: false });
+  },
+
+  fetchCurrentInvoice: async () => {
+    const currentInvoice = get().currentInvoice;
+    if (!currentInvoice) return;
+    
+    try {
+      const invoice = await invoiceApi.getInvoice(currentInvoice.id);
+      set({ currentInvoice: invoice });
+      
+      // Update the invoice in the list as well
+      const invoices = get().invoices.map(inv => 
+        inv.id === invoice.id 
+          ? { ...inv, total: invoice.line_items.reduce((sum, item) => sum + (item.quantity * item.rate), 0) }
+          : inv
+      );
+      set({ invoices });
+    } catch (error) {
+      console.error('Failed to refresh current invoice:', error);
+    }
   },
   
   // Line item actions

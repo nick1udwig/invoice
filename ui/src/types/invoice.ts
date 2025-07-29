@@ -44,6 +44,7 @@ export interface LineItem {
   quantity: number;
   rate: number;
   discount_percent: number;
+  receipt_path: string | null;
 }
 
 export interface InvoiceSummary {

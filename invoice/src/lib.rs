@@ -22,6 +22,7 @@ use hyperware_process_lib::{
 // Standard imports for serialization
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use base64::{Engine as _, engine::general_purpose};
 
 // Invoice Data Models
 
@@ -72,6 +73,7 @@ pub struct LineItem {
     pub quantity: f64,
     pub rate: f64,
     pub discount_percent: f64,
+    pub receipt_path: Option<String>, // Path to receipt file in VFS
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -510,6 +512,7 @@ impl AppState {
                 quantity: 1.0,
                 rate: 0.0,
                 discount_percent: 0.0,
+                receipt_path: None,
             };
 
             invoice.line_items.push(new_item);
@@ -678,6 +681,92 @@ impl AppState {
                 .map_err(|e| format!("Failed to serialize invoice: {}", e))
         } else {
             Err("No invoice currently loaded".to_string())
+        }
+    }
+
+    // Receipt Upload
+    
+    #[http]
+    async fn upload_receipt(&mut self, request_body: Vec<u8>) -> Result<String, String> {
+        #[derive(Deserialize)]
+        struct ReceiptUploadRequest {
+            item_id: String,
+            file_name: String,
+            file_data: Vec<u8>,
+        }
+        
+        let request: ReceiptUploadRequest = serde_json::from_slice(&request_body)
+            .map_err(|e| format!("Invalid request: {}", e))?;
+        
+        if let Some(ref mut invoice) = self.current_invoice {
+            // Find the line item
+            let item_index = invoice.line_items.iter().position(|item| item.id == request.item_id)
+                .ok_or("Line item not found")?;
+            
+            // Save current state for undo
+            let snapshot = InvoiceSnapshot {
+                invoice: invoice.clone(),
+                timestamp: invoice.updated_at,
+            };
+            self.undo_stack.push(snapshot);
+            if self.undo_stack.len() > 50 {
+                self.undo_stack.remove(0);
+            }
+            self.redo_stack.clear();
+            
+            // Save receipt file to VFS
+            let package_id = our().package_id();
+            let drive_path = format!("/{}/invoice", package_id);
+            
+            // Create receipts directory for this invoice
+            let invoice_dir = if let Some(ref name) = invoice.name {
+                name.clone()
+            } else {
+                invoice.number.clone()
+            };
+            
+            let receipts_dir = format!("{}/{}/{}/receipts", drive_path, invoice.date, invoice_dir);
+            let _ = open_dir(&receipts_dir, true, Some(5));
+            
+            // Save the receipt file
+            let receipt_path = format!("{}/{}", receipts_dir, request.file_name);
+            match create_file(&receipt_path, Some(5)) {
+                Ok(file) => {
+                    file.write(&request.file_data)
+                        .map_err(|e| format!("Failed to write receipt: {}", e))?;
+                    
+                    // Update the line item with the receipt path
+                    invoice.line_items[item_index].receipt_path = Some(receipt_path.clone());
+                    
+                    invoice.updated_at = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .unwrap()
+                        .as_secs();
+                    
+                    self.has_unsaved_changes = true;
+                    self.save_current_invoice()?;
+                    
+                    // Return the path
+                    Ok(receipt_path)
+                }
+                Err(e) => Err(format!("Failed to create receipt file: {}", e)),
+            }
+        } else {
+            Err("No invoice currently loaded".to_string())
+        }
+    }
+    
+    #[http]
+    async fn get_receipt(&self, request_body: String) -> Result<Vec<u8>, String> {
+        let receipt_path: String = serde_json::from_str(&request_body)
+            .map_err(|e| format!("Invalid receipt path: {}", e))?;
+        
+        match open_file(&receipt_path, false, Some(5)) {
+            Ok(file) => {
+                file.read()
+                    .map_err(|e| format!("Failed to read receipt: {}", e))
+            }
+            Err(e) => Err(format!("Receipt not found: {}", e)),
         }
     }
 
@@ -921,7 +1010,7 @@ impl AppState {
         }
     }
 
-    // Helper method to generate invoice HTML
+    // Helper method to generate invoice HTML with embedded receipts
     fn generate_invoice_html(&self, invoice: &Invoice) -> String {
         let subtotal = invoice.line_items.iter()
             .map(|item| {
@@ -935,22 +1024,64 @@ impl AppState {
         let tax = after_discount * invoice.tax_percent / 100.0;
         let total = after_discount + tax;
 
+        // Collect all receipt data for embedding
+        let mut embedded_receipts = String::new();
+        for (index, item) in invoice.line_items.iter().enumerate() {
+            if let Some(ref receipt_path) = item.receipt_path {
+                if let Ok(file) = open_file(receipt_path, false, Some(5)) {
+                    if let Ok(data) = file.read() {
+                        let mime_type = if receipt_path.ends_with(".pdf") {
+                            "application/pdf"
+                        } else if receipt_path.ends_with(".jpg") || receipt_path.ends_with(".jpeg") {
+                            "image/jpeg"
+                        } else if receipt_path.ends_with(".png") {
+                            "image/png"
+                        } else {
+                            "application/octet-stream"
+                        };
+                        
+                        // Convert to base64
+                        let base64_data = general_purpose::STANDARD.encode(&data);
+                        embedded_receipts.push_str(&format!(
+                            r#"<div id="receipt-{}" style="display:none;" data-mime="{}" data-filename="{}">{}</div>"#,
+                            index,
+                            mime_type,
+                            receipt_path.split('/').last().unwrap_or("receipt"),
+                            base64_data
+                        ));
+                    }
+                }
+            }
+        }
+
         format!(r#"
 <!DOCTYPE html>
 <html>
 <head>
     <style>
-        body {{ font-family: Arial, sans-serif; margin: 40px; }}
+        body {{ font-family: Arial, sans-serif; margin: 40px; background-color: #f5f5dc; color: #333; }}
         .header {{ display: flex; justify-content: space-between; margin-bottom: 40px; }}
         .invoice-details {{ text-align: right; }}
         .contact-info {{ margin-bottom: 30px; }}
-        table {{ width: 100%; border-collapse: collapse; margin: 20px 0; }}
+        table {{ width: 100%; border-collapse: collapse; margin: 20px 0; background-color: #fffef9; }}
         th, td {{ padding: 10px; text-align: left; border-bottom: 1px solid #ddd; }}
-        th {{ background-color: #f5f5f5; }}
+        th {{ background-color: #ede8d5; }}
         .totals {{ text-align: right; margin-top: 20px; }}
         .total-row {{ display: flex; justify-content: flex-end; margin: 5px 0; }}
         .total-label {{ width: 150px; }}
         .total-value {{ width: 100px; text-align: right; }}
+        .receipt-link {{ color: #4a6fa5; text-decoration: underline; cursor: pointer; font-size: 0.9em; }}
+        .receipt-link:hover {{ color: #2e4a7c; }}
+        .modal {{ display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.9); }}
+        .modal-content {{ margin: 2% auto; display: block; max-width: 90%; max-height: 90%; }}
+        .close {{ position: absolute; top: 15px; right: 35px; color: #f1f1f1; font-size: 40px; font-weight: bold; cursor: pointer; }}
+        .close:hover {{ color: #bbb; }}
+        @media print {{
+            .receipt-link {{ display: none; }}
+            body {{ background-color: white; }}
+            table {{ background-color: white; }}
+            th {{ background-color: #f5f5f5; }}
+        }}
     </style>
 </head>
 <body>
@@ -989,6 +1120,7 @@ impl AppState {
                 <th>Rate</th>
                 <th>Discount</th>
                 <th>Amount</th>
+                <th>Receipt</th>
             </tr>
         </thead>
         <tbody>
@@ -1018,6 +1150,45 @@ impl AppState {
     {}
 
     {}
+
+    <!-- Embedded receipt data -->
+    {}
+
+    <!-- Receipt viewer modal -->
+    <div id="receiptModal" class="modal">
+        <span class="close" onclick="closeModal()">&times;</span>
+        <iframe id="receiptFrame" class="modal-content" style="width: 90%; height: 90%; border: none;"></iframe>
+    </div>
+
+    <script>
+        function showReceipt(index) {{
+            const receiptDiv = document.getElementById('receipt-' + index);
+            if (!receiptDiv) return;
+            
+            const base64Data = receiptDiv.textContent;
+            const mimeType = receiptDiv.getAttribute('data-mime');
+            const dataUri = 'data:' + mimeType + ';base64,' + base64Data;
+            
+            const modal = document.getElementById('receiptModal');
+            const frame = document.getElementById('receiptFrame');
+            frame.src = dataUri;
+            modal.style.display = 'block';
+        }}
+        
+        function closeModal() {{
+            const modal = document.getElementById('receiptModal');
+            const frame = document.getElementById('receiptFrame');
+            modal.style.display = 'none';
+            frame.src = '';
+        }}
+        
+        window.onclick = function(event) {{
+            const modal = document.getElementById('receiptModal');
+            if (event.target === modal) {{
+                closeModal();
+            }}
+        }}
+    </script>
 </body>
 </html>
         "#,
@@ -1032,13 +1203,18 @@ impl AppState {
             invoice.invoicee.company.as_ref().unwrap_or(&String::new()),
             invoice.invoicee.address,
             invoice.invoicee.email.as_ref().unwrap_or(&String::new()),
-            invoice.line_items.iter()
-                .map(|item| {
+            invoice.line_items.iter().enumerate()
+                .map(|(index, item)| {
                     let line_total = item.quantity * item.rate;
                     let amount = line_total - (line_total * item.discount_percent / 100.0);
+                    let receipt_cell = if item.receipt_path.is_some() {
+                        format!(r#"<a class="receipt-link" onclick="showReceipt({})">View Receipt</a>"#, index)
+                    } else {
+                        String::new()
+                    };
                     format!(
-                        "<tr><td>{}</td><td>{}</td><td>${:.2}</td><td>{}%</td><td>${:.2}</td></tr>",
-                        item.description, item.quantity, item.rate, item.discount_percent, amount
+                        "<tr><td>{}</td><td>{}</td><td>${:.2}</td><td>{}%</td><td>${:.2}</td><td>{}</td></tr>",
+                        item.description, item.quantity, item.rate, item.discount_percent, amount, receipt_cell
                     )
                 })
                 .collect::<Vec<_>>()
@@ -1054,7 +1230,8 @@ impl AppState {
                 .unwrap_or_default(),
             invoice.payment_info.as_ref()
                 .map(|p| format!("<div class='payment'><h3>Payment Information:</h3><p>{}</p></div>", p))
-                .unwrap_or_default()
+                .unwrap_or_default(),
+            embedded_receipts
         )
     }
 }

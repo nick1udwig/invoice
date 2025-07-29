@@ -57,24 +57,63 @@
   background-color: #fafafa;
 }
 
+.line-items-table tbody tr.drag-over {
+  background-color: #e3f2fd;
+  border: 2px dashed #1976d2;
+}
+
 .description-col {
-  width: 50%;
+  width: 40%;
 }
 
 .quantity-col,
 .rate-col {
-  width: 15%;
+  width: 12%;
   text-align: center;
 }
 
 .amount-col {
-  width: 15%;
+  width: 12%;
   text-align: right;
+}
+
+.receipt-col {
+  width: 15%;
+  text-align: center;
 }
 
 .actions-col {
   width: 5%;
   text-align: center;
+}
+
+.btn-link {
+  background: none;
+  border: none;
+  color: #1976d2;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.875rem;
+}
+
+.btn-link:hover {
+  color: #1565c0;
+}
+
+.btn-secondary {
+  background-color: #f5f5f5;
+  color: #333;
+  border: 1px solid #ddd;
+}
+
+.btn-secondary:hover:not(:disabled) {
+  background-color: #e0e0e0;
+}
+
+.btn-secondary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
 }
 
 .empty-state {
@@ -170,16 +209,20 @@
   }
   
   .description-col {
-    width: 40%;
+    width: 30%;
   }
   
   .quantity-col,
   .rate-col,
   .amount-col {
+    width: 15%;
+  }
+  
+  .receipt-col {
     width: 18%;
   }
   
   .actions-col {
-    width: 6%;
+    width: 7%;
   }
 }

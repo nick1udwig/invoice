@@ -1856,6 +1856,7 @@ name = "invoice"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "base64",
  "base64ct",
  "hyperprocess_macro",
  "hyperware_app_common",
