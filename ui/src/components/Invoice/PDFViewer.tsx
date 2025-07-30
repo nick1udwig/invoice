@@ -92,6 +92,18 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ pdfData, fileName }) => {
     }
   };
 
+  const handleSave = () => {
+    const blob = new Blob([pdfData], { type: 'application/pdf' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div style={{
       backgroundColor: 'var(--surface)',
@@ -115,6 +127,20 @@ const PDFViewer: React.FC<PDFViewerProps> = ({ pdfData, fileName }) => {
       }}>
         <h3 style={{ margin: 0, color: 'var(--text-primary)', flex: 1 }}>{fileName}</h3>
         <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+          <button 
+            onClick={handleSave}
+            style={{ 
+              padding: '6px 16px',
+              backgroundColor: 'var(--primary-color)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              fontWeight: 500
+            }}
+          >
+            Save
+          </button>
           <span style={{ color: 'var(--text-secondary)' }}>
             {totalPages} page{totalPages !== 1 ? 's' : ''}
           </span>

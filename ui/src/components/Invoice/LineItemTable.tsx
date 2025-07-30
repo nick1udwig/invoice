@@ -321,9 +321,36 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
                 backgroundColor: 'var(--surface)',
                 position: 'sticky',
                 top: 0,
-                zIndex: 1
+                zIndex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
               }}>
                 <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>{receiptModalData.fileName}</h3>
+                <button 
+                  onClick={() => {
+                    const blob = new Blob([receiptModalData.data], { type: receiptModalData.mimeType });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = receiptModalData.fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                  style={{ 
+                    padding: '6px 16px',
+                    backgroundColor: 'var(--primary-color)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 500
+                  }}
+                >
+                  Save
+                </button>
               </div>
               <div style={{
                 padding: '20px',
