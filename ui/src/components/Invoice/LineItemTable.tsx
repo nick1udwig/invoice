@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import type { LineItem } from '../../types/invoice';
 import { useInvoiceStore } from '../../store/invoice';
 import { uploadReceipt, getReceipt } from '../../utils/invoiceApi';
+import PDFViewer from './PDFViewer';
 import './LineItemTable.css';
 
 interface LineItemTableProps {
@@ -14,7 +15,9 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [uploadingReceipt, setUploadingReceipt] = useState<string | null>(null);
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
+  const [receiptModalData, setReceiptModalData] = useState<{ data: Uint8Array; fileName: string; mimeType: string } | null>(null);
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+  const modalRef = useRef<HTMLDivElement>(null);
 
   const handleFieldChange = (
     itemId: string,
@@ -74,70 +77,65 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
     }
   };
 
-  const handleViewReceipt = async (receiptPath: string, fileName: string) => {
+  const handleViewReceipt = async (receiptPath: string, fileName: string, e?: React.MouseEvent) => {
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
     try {
-      const blob = await getReceipt(receiptPath);
-      const url = URL.createObjectURL(blob);
+      const receiptData = await getReceipt(receiptPath);
       
-      // Determine if it's a PDF or image
-      const isPDF = fileName.toLowerCase().endsWith('.pdf');
+      // Convert number array to Uint8Array
+      const uint8Array = new Uint8Array(receiptData);
       
-      if (isPDF) {
-        // For PDFs, open in a new tab/window
-        window.open(url, '_blank');
-      } else {
-        // For images, create a preview window
-        const previewWindow = window.open('', '_blank', 'width=800,height=600');
-        if (previewWindow) {
-          previewWindow.document.write(`
-            <!DOCTYPE html>
-            <html>
-            <head>
-              <title>${fileName}</title>
-              <style>
-                body {
-                  margin: 0;
-                  padding: 20px;
-                  background: #f0f0f0;
-                  display: flex;
-                  justify-content: center;
-                  align-items: center;
-                  min-height: 100vh;
-                }
-                img {
-                  max-width: 100%;
-                  max-height: 90vh;
-                  box-shadow: 0 4px 6px rgba(0,0,0,0.1);
-                }
-                .container {
-                  text-align: center;
-                }
-                .filename {
-                  margin-bottom: 20px;
-                  font-family: Arial, sans-serif;
-                  color: #333;
-                }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <h2 class="filename">${fileName}</h2>
-                <img src="${url}" alt="${fileName}" />
-              </div>
-            </body>
-            </html>
-          `);
-          previewWindow.document.close();
-        }
+      // Determine mime type from filename
+      let mimeType = 'application/octet-stream';
+      if (fileName.toLowerCase().endsWith('.pdf')) {
+        mimeType = 'application/pdf';
+      } else if (fileName.toLowerCase().endsWith('.jpg') || fileName.toLowerCase().endsWith('.jpeg')) {
+        mimeType = 'image/jpeg';
+      } else if (fileName.toLowerCase().endsWith('.png')) {
+        mimeType = 'image/png';
       }
       
-      // Clean up after a delay
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setReceiptModalData({ data: uint8Array, fileName, mimeType });
     } catch (error) {
       console.error('Failed to view receipt:', error);
       alert('Failed to load receipt. Please try again.');
     }
   };
+
+  const closeModal = () => {
+    setReceiptModalData(null);
+  };
+
+  // Handle click outside modal
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (modalRef.current && event.target === modalRef.current) {
+        closeModal();
+      }
+    };
+
+    if (receiptModalData) {
+      document.addEventListener('click', handleClickOutside);
+      return () => document.removeEventListener('click', handleClickOutside);
+    }
+  }, [receiptModalData]);
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEscKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && receiptModalData) {
+        closeModal();
+      }
+    };
+
+    if (receiptModalData) {
+      document.addEventListener('keydown', handleEscKey);
+      return () => document.removeEventListener('keydown', handleEscKey);
+    }
+  }, [receiptModalData]);
 
   const handleDragOver = (e: React.DragEvent, itemId: string) => {
     e.preventDefault();
@@ -165,7 +163,8 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
   };
 
   return (
-    <div className="line-items-container">
+    <>
+      <div className="line-items-container">
       <div className="line-items-header">
         <h3>Line Items</h3>
         <button onClick={onAddItem} className="btn btn-primary btn-small">
@@ -249,9 +248,10 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
                 <td className="receipt-col">
                   {item.receipt_path ? (
                     <button
-                      onClick={() => handleViewReceipt(item.receipt_path!, item.receipt_path!.split('/').pop()!)}
+                      onClick={(e) => handleViewReceipt(item.receipt_path!, item.receipt_path!.split('/').pop()!, e)}
                       className="btn btn-link btn-small"
                       title="View receipt"
+                      type="button"
                     >
                       View Receipt
                     </button>
@@ -294,6 +294,67 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
         </tbody>
       </table>
     </div>
+
+    {/* Receipt Modal */}
+    {receiptModalData && (
+      <div className="receipt-modal" ref={modalRef}>
+        <span className="modal-close" onClick={closeModal}>&times;</span>
+        <div className="modal-content">
+          {receiptModalData.mimeType === 'application/pdf' ? (
+            <PDFViewer 
+              pdfData={receiptModalData.data}
+              fileName={receiptModalData.fileName}
+            />
+          ) : (
+            <div style={{ 
+              backgroundColor: 'var(--surface)',
+              maxWidth: '90vw', 
+              maxHeight: '90vh', 
+              overflow: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              borderRadius: '8px'
+            }}>
+              <div style={{ 
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border-color)',
+                backgroundColor: 'var(--surface)',
+                position: 'sticky',
+                top: 0,
+                zIndex: 1
+              }}>
+                <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>{receiptModalData.fileName}</h3>
+              </div>
+              <div style={{
+                padding: '20px',
+                backgroundColor: 'var(--background)',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+                flex: 1
+              }}>
+                <img 
+                  src={URL.createObjectURL(new Blob([receiptModalData.data], { type: receiptModalData.mimeType }))} 
+                  alt={receiptModalData.fileName}
+                  style={{ 
+                    maxWidth: '100%', 
+                    maxHeight: '100%',
+                    height: 'auto',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                  }}
+                  onLoad={(e) => {
+                    // Clean up the blob URL after the image loads
+                    const img = e.target as HTMLImageElement;
+                    setTimeout(() => URL.revokeObjectURL(img.src), 100);
+                  }}
+                />
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    )}
+    </>
   );
 };
 

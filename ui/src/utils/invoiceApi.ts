@@ -223,10 +223,10 @@ export async function uploadReceipt(itemId: string, file: File): Promise<string>
   }
 }
 
-export async function getReceipt(receiptPath: string): Promise<Blob> {
+export async function getReceipt(receiptPath: string): Promise<number[]> {
   try {
     const bytes = await api.getReceipt(JSON.stringify(receiptPath));
-    return new Blob([new Uint8Array(bytes)]);
+    return bytes;
   } catch (error) {
     console.error('Failed to get receipt:', error);
     throw error;
