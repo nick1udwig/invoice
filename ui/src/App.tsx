@@ -36,33 +36,16 @@ function App() {
   
   return (
     <div className="app">
-      <nav className="navbar">
-        <div className="navbar-container">
-          <div className="navbar-left">
-            <h1 className="app-title">Invoice Manager</h1>
-            {currentView !== 'list' && (
-              <button onClick={handleBack} className="btn btn-secondary">
-                ← Back
-              </button>
-            )}
-          </div>
-          <div className="navbar-right">
-            {currentView === 'list' && (
-              <button 
-                onClick={() => setCurrentView('settings')} 
-                className="btn btn-secondary"
-              >
-                Settings
-              </button>
-            )}
-          </div>
-        </div>
-      </nav>
-      
       <main className="main-content">
-        {currentView === 'list' && <InvoiceList />}
-        {currentView === 'settings' && <SettingsPage onBack={handleBack} />}
-        {currentView === 'invoice' && <InvoiceEditor />}
+        {currentView === 'list' && (
+          <InvoiceList onOpenSettings={() => setCurrentView('settings')} />
+        )}
+        {currentView === 'settings' && (
+          <SettingsPage onBack={handleBack} />
+        )}
+        {currentView === 'invoice' && (
+          <InvoiceEditor onBack={handleBack} />
+        )}
       </main>
     </div>
   );

@@ -1272,9 +1272,9 @@ dependencies = [
 
 [[package]]
 name = "flate2"
-version = "1.1.2"
+version = "1.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a3d7db9596fecd151c5f638c0ee5d5bd487b6e0ea232e5dc96d5250f6f94b1d"
+checksum = "bfe33edd8e85a12a67454e37f8c75e730830d83e313556ab9ebf9ee7fbeb3bfb"
 dependencies = [
  "crc32fast",
  "miniz_oxide",
@@ -1633,50 +1633,18 @@ dependencies = [
 [[package]]
 name = "hyperprocess_macro"
 version = "0.1.0"
-source = "git+https://github.com/hyperware-ai/hyperprocess-macro?rev=f1cd5bb#f1cd5bbb947302b14bc1a0a673fdd21597c76c37"
+source = "git+https://github.com/hyperware-ai/hyperprocess-macro?rev=c6f0d35#c6f0d35ecbcfc43764a40937b0e55de77376a2e2"
 dependencies = [
- "anyhow",
- "futures-util",
- "hyperware_app_common",
  "hyperware_process_lib",
- "once_cell",
- "paste",
  "proc-macro2",
- "process_macros",
  "quote",
- "rmp-serde",
- "serde",
- "serde_derive",
- "serde_json",
  "syn 2.0.104",
- "uuid",
- "wit-bindgen 0.36.0",
-]
-
-[[package]]
-name = "hyperware_app_common"
-version = "0.1.0"
-source = "git+https://github.com/hyperware-ai/hyperprocess-macro?rev=f1cd5bb#f1cd5bbb947302b14bc1a0a673fdd21597c76c37"
-dependencies = [
- "anyhow",
- "futures-util",
- "hyperware_process_lib",
- "once_cell",
- "paste",
- "process_macros",
- "rmp-serde",
- "serde",
- "serde_derive",
- "serde_json",
- "thiserror 2.0.12",
- "uuid",
- "wit-bindgen 0.36.0",
 ]
 
 [[package]]
 name = "hyperware_process_lib"
 version = "2.0.1"
-source = "git+https://github.com/hyperware-ai/process_lib?rev=cfd6843#cfd6843139bc40ffeefb1304372878c07d3132b7"
+source = "git+https://github.com/hyperware-ai/process_lib?rev=c27a881#c27a881e764920636ac025112533a714d622793c"
 dependencies = [
  "alloy",
  "alloy-primitives",
@@ -1686,6 +1654,7 @@ dependencies = [
  "base64",
  "bincode",
  "color-eyre",
+ "futures-util",
  "http",
  "mime_guess",
  "rand 0.8.5",
@@ -1698,6 +1667,7 @@ dependencies = [
  "tracing-error",
  "tracing-subscriber",
  "url",
+ "uuid",
  "wit-bindgen 0.42.1",
 ]
 
@@ -1859,11 +1829,28 @@ dependencies = [
  "base64",
  "base64ct",
  "hyperprocess_macro",
- "hyperware_app_common",
+ "hyperware_process_lib",
+ "invoice_caller_utils",
  "process_macros",
  "serde",
  "serde_json",
  "wit-bindgen 0.36.0",
+]
+
+[[package]]
+name = "invoice_caller_utils"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "futures",
+ "futures-util",
+ "hyperware_process_lib",
+ "once_cell",
+ "process_macros",
+ "serde",
+ "serde_json",
+ "uuid",
+ "wit-bindgen 0.41.0",
 ]
 
 [[package]]
@@ -2075,6 +2062,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1fa76a2c86f704bdb222d66965fb3d63269ce38518b83cb0575fca855ebb6316"
 dependencies = [
  "adler2",
+ "simd-adler32",
 ]
 
 [[package]]
@@ -3021,6 +3009,12 @@ dependencies = [
  "digest 0.10.7",
  "rand_core 0.6.4",
 ]
+
+[[package]]
+name = "simd-adler32"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d66dc143e6b11c1eddc06d5c423cfc97062865baf299914ab64caa38182078fe"
 
 [[package]]
 name = "slab"

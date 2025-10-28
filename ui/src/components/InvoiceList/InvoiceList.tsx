@@ -2,7 +2,11 @@ import React from 'react';
 import { useInvoiceStore } from '../../store/invoice';
 import './InvoiceList.css';
 
-const InvoiceList: React.FC = () => {
+interface InvoiceListProps {
+  onOpenSettings: () => void;
+}
+
+const InvoiceList: React.FC<InvoiceListProps> = ({ onOpenSettings }) => {
   const {
     invoices,
     invoicesLoading,
@@ -69,50 +73,68 @@ const InvoiceList: React.FC = () => {
 
   return (
     <div className="invoice-list-container">
-      <div className="invoice-list-header">
+      <div className="invoice-list-toolbar">
         <h2>Invoices</h2>
-        <button onClick={handleCreateNew} className="btn btn-primary">
-          + Create New Invoice
-        </button>
+        <div className="invoice-list-actions">
+          <button 
+            onClick={handleCreateNew} 
+            className="btn btn-primary"
+          >
+            + New Invoice
+          </button>
+          <button
+            onClick={onOpenSettings}
+            className="btn btn-secondary"
+          >
+            Settings
+          </button>
+        </div>
       </div>
 
       {invoices.length === 0 ? (
         <div className="empty-state">
           <p>No invoices yet.</p>
-          <p>Click "Create New Invoice" to get started.</p>
+          <p>Click "+ New Invoice" to get started.</p>
         </div>
       ) : (
-        <div className="invoice-grid">
+        <div className="invoice-list">
           {invoices.map((invoice) => (
             <div
               key={invoice.id}
-              className="invoice-card"
+              className="invoice-list-row"
               onClick={() => loadInvoice(invoice.id)}
+              role="button"
+              tabIndex={0}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  loadInvoice(invoice.id);
+                }
+              }}
             >
-              <div className="invoice-card-header">
-                <h3>{invoice.number}</h3>
+              <div className="invoice-row-left">
+                <h3 className="invoice-number">{invoice.number}</h3>
+                {invoice.name && (
+                  <div className="invoice-name">{invoice.name}</div>
+                )}
+              </div>
+
+              <div className="invoice-row-middle">
                 <span className={getStatusClass(invoice.status)}>
                   {invoice.status}
                 </span>
-              </div>
-              
-              {invoice.name && (
-                <div className="invoice-name">{invoice.name}</div>
-              )}
-              
-              <div className="invoice-card-details">
-                <div className="invoice-date">
+                <span className="invoice-date">
                   {formatDate(invoice.date)}
-                </div>
+                </span>
+              </div>
+
+              <div className="invoice-row-right">
                 <div className="invoice-total">
                   {formatCurrency(invoice.total)}
                 </div>
-              </div>
-              
-              <div className="invoice-card-actions">
                 <button
                   onClick={(e) => handleDelete(e, invoice.id)}
-                  className="btn btn-danger btn-sm"
+                  className="btn btn-link-inline"
                 >
                   Delete
                 </button>

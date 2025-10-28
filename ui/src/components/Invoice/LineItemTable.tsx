@@ -7,7 +7,7 @@ import './LineItemTable.css';
 
 interface LineItemTableProps {
   items: LineItem[];
-  onAddItem: () => void;
+  onAddItem: () => Promise<void>;
 }
 
 const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
@@ -17,6 +17,9 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
   const [dragOverItemId, setDragOverItemId] = useState<string | null>(null);
   const [receiptModalData, setReceiptModalData] = useState<{ data: Uint8Array; fileName: string; mimeType: string } | null>(null);
   const fileInputRefs = useRef<{ [key: string]: HTMLInputElement | null }>({});
+  const rowRefs = useRef<Record<string, HTMLTableRowElement | null>>({});
+  const previousItemIdsRef = useRef<string[]>(items.map((item) => item.id));
+  const pendingScrollRef = useRef(false);
   const modalRef = useRef<HTMLDivElement>(null);
 
   const handleFieldChange = (
@@ -162,12 +165,48 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
     }
   };
 
+  const handleAddItemClick = async () => {
+    pendingScrollRef.current = true;
+    try {
+      await onAddItem();
+    } catch (error) {
+      console.error('Failed to add line item:', error);
+      pendingScrollRef.current = false;
+    }
+  };
+
+  useEffect(() => {
+    const currentIds = items.map((item) => item.id);
+    const previousIds = previousItemIdsRef.current;
+
+    if (pendingScrollRef.current) {
+      const newItem = items.find((item) => !previousIds.includes(item.id));
+      if (newItem) {
+        const row = rowRefs.current[newItem.id];
+        if (row) {
+          row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          const focusTarget = row.querySelector<HTMLElement>('input, textarea, [tabindex]:not([tabindex="-1"])');
+          focusTarget?.focus();
+        }
+      }
+      pendingScrollRef.current = false;
+    }
+
+    Object.keys(rowRefs.current).forEach((id) => {
+      if (!currentIds.includes(id)) {
+        delete rowRefs.current[id];
+      }
+    });
+
+    previousItemIdsRef.current = currentIds;
+  }, [items]);
+
   return (
     <>
       <div className="line-items-container">
       <div className="line-items-header">
         <h3>Line Items</h3>
-        <button onClick={onAddItem} className="btn btn-primary btn-small">
+        <button onClick={handleAddItemClick} className="btn btn-primary btn-small">
           + Add Item
         </button>
       </div>
@@ -194,12 +233,15 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
             items.map((item) => (
               <tr 
                 key={item.id}
+                ref={(el) => {
+                  rowRefs.current[item.id] = el;
+                }}
                 className={dragOverItemId === item.id ? 'drag-over' : ''}
                 onDragOver={(e) => handleDragOver(e, item.id)}
                 onDragLeave={handleDragLeave}
                 onDrop={(e) => handleDrop(e, item.id)}
               >
-                <td className="description-col">
+                <td className="description-col" data-label="Description">
                   {editingId === item.id ? (
                     <input
                       type="text"
@@ -219,7 +261,7 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
                     </div>
                   )}
                 </td>
-                <td className="quantity-col">
+                <td className="quantity-col" data-label="Quantity">
                   <input
                     type="number"
                     value={item.quantity}
@@ -229,23 +271,27 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
                     className="number-input"
                   />
                 </td>
-                <td className="rate-col">
+                <td className="rate-col" data-label="Rate">
                   <div className="rate-input-wrapper">
                     <span className="currency-symbol">$</span>
                     <input
                       type="number"
-                      value={item.rate}
+                      value={item.rate === 0 ? '' : item.rate}
                       onChange={(e) => handleRateChange(item.id, e.target.value)}
                       min="0"
                       step="0.01"
                       className="number-input"
+                      inputMode="decimal"
+                      placeholder="0.00"
                     />
                   </div>
                 </td>
-                <td className="amount-col">
-                  {formatCurrency(item.quantity * item.rate)}
+                <td className="amount-col" data-label="Amount">
+                  <span className="amount-value">
+                    {formatCurrency(item.quantity * item.rate)}
+                  </span>
                 </td>
-                <td className="receipt-col">
+                <td className="receipt-col" data-label="Receipt">
                   {item.receipt_path ? (
                     <button
                       onClick={(e) => handleViewReceipt(item.receipt_path!, item.receipt_path!.split('/').pop()!, e)}
@@ -279,7 +325,7 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
                     </>
                   )}
                 </td>
-                <td className="actions-col">
+                <td className="actions-col" data-label="Actions">
                   <button
                     onClick={() => deleteLineItem(item.id)}
                     className="btn-icon delete-btn"

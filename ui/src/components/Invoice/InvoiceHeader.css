@@ -13,14 +13,14 @@
 
 .invoice-title-section h1 {
   margin: 0;
-  font-size: 2.5rem;
+  font-size: clamp(1.75rem, 3vw + 1.25rem, 2.5rem);
   color: var(--text-primary);
   font-weight: 300;
   letter-spacing: 0.05em;
 }
 
 .invoice-number {
-  font-size: 1.25rem;
+  font-size: clamp(1rem, 2vw + 0.5rem, 1.25rem);
   color: var(--text-secondary);
   font-weight: 500;
 }
@@ -70,11 +70,18 @@
     gap: 0.5rem;
   }
   
-  .invoice-title-section h1 {
-    font-size: 2rem;
-  }
-  
   .invoice-meta {
     grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 480px) {
+  .invoice-header {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.5rem;
+  }
+
+  .invoice-meta {
+    gap: 1rem;
   }
 }

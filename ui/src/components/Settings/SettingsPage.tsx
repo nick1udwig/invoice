@@ -119,7 +119,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
           <h3>Your Business Information</h3>
           
           <div className="form-group">
-            <label htmlFor="invoicer-name">Business Name *</label>
+            <label htmlFor="invoicer-name">Name *</label>
             <input
               id="invoicer-name"
               type="text"

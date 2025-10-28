@@ -1,12 +1,15 @@
 .settings-container {
-  max-width: 800px;
-  margin: 0 auto;
-  padding: 2rem;
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: clamp(1.25rem, 2vw + 1rem, 2.5rem);
 }
 
 .settings-container h2 {
-  margin-bottom: 2rem;
+  margin: 0 0 clamp(1.25rem, 2vw + 1rem, 1.75rem);
   color: var(--text-primary);
+  font-size: clamp(1.25rem, 2vw + 1rem, 1.75rem);
+  font-weight: 600;
 }
 
 .settings-loading {
@@ -25,24 +28,34 @@
 }
 
 .settings-form {
+  width: 100%;
   background: var(--surface);
-  border-radius: 8px;
+  border-radius: 12px;
   box-shadow: 0 2px 8px var(--shadow-color);
+  padding: clamp(1.5rem, 2vw + 1.5rem, 3rem);
 }
 
 .settings-section {
-  padding: 2rem;
+  padding: clamp(1.5rem, 2vw + 1rem, 2rem) 0;
   border-bottom: 1px solid var(--border-color);
+}
+
+.settings-section:first-of-type {
+  padding-top: 0;
 }
 
 .settings-section:last-of-type {
   border-bottom: none;
+  padding-bottom: clamp(1.5rem, 2vw + 1rem, 2rem);
 }
 
 .settings-section h3 {
-  margin: 0 0 1.5rem 0;
-  color: var(--primary-color);
-  font-size: 1.25rem;
+  margin: 0 0 1rem 0;
+  color: var(--text-secondary);
+  font-size: 0.875rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .form-group {
@@ -85,12 +98,6 @@
   gap: 1rem;
 }
 
-@media (max-width: 600px) {
-  .form-row {
-    grid-template-columns: 1fr;
-  }
-}
-
 .file-path {
   margin-top: 0.5rem;
   font-size: 0.875rem;
@@ -98,12 +105,13 @@
 }
 
 .form-actions {
-  padding: 2rem;
+  margin-top: clamp(1.5rem, 2vw + 1rem, 2rem);
+  padding-top: clamp(1.5rem, 2vw + 1rem, 2rem);
   display: flex;
   justify-content: flex-end;
   gap: 1rem;
-  background-color: var(--table-header-bg);
-  border-radius: 0 0 8px 8px;
+  background: none;
+  border-top: 1px solid var(--border-color);
 }
 
 .btn {
@@ -138,4 +146,39 @@
 
 .btn-secondary:hover:not(:disabled) {
   background-color: var(--surface-hover);
+}
+
+@media (max-width: 768px) {
+  .form-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .form-actions .btn {
+    width: 100%;
+  }
+}
+
+@media (max-width: 600px) {
+  .settings-container {
+    padding: 1rem 0 2rem;
+  }
+
+  .settings-form {
+    border-radius: 0;
+    box-shadow: none;
+    padding: 1.5rem 1.25rem 2rem;
+  }
+
+  .settings-section {
+    padding: 1.5rem 0;
+  }
+
+  .settings-section:first-of-type {
+    padding-top: 0;
+  }
+
+  .form-row {
+    grid-template-columns: 1fr;
+  }
 }

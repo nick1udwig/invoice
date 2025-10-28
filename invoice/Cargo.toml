@@ -8,17 +8,23 @@ wit-bindgen = "0.36.0"
 
 [dependencies.hyperprocess_macro]
 git = "https://github.com/hyperware-ai/hyperprocess-macro"
-rev = "f1cd5bb"
+rev = "c6f0d35"
 
-[dependencies.hyperware_app_common]
-git = "https://github.com/hyperware-ai/hyperprocess-macro"
-rev = "f1cd5bb"
+[dependencies.hyperware_process_lib]
+features = ["hyperapp"]
+git = "https://github.com/hyperware-ai/process_lib"
+rev = "c27a881"
+
+[dependencies.invoice_caller_utils]
+optional = true
+path = "../target/invoice-caller-utils"
 
 [dependencies.serde]
 features = ["derive"]
 version = "1.0"
 
 [features]
+caller-utils = ["invoice_caller_utils"]
 simulation-mode = []
 
 [lib]

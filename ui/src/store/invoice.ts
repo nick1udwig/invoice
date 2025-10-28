@@ -41,7 +41,11 @@ interface InvoiceStore extends InvoiceState {
   stopAutosave: () => void;
   
   // Debouncing timers
-  updateTimers: Map<string, NodeJS.Timeout>;
+  updateTimers: Map<string, ReturnType<typeof setTimeout>>;
+
+  // Version tracking to prevent stale updates
+  currentInvoiceVersion: number;
+  lineItemVersions: Map<string, number>;
 }
 
 export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
@@ -61,6 +65,8 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   canRedo: false,
   autosaveTimer: null,
   updateTimers: new Map(),
+  currentInvoiceVersion: 0,
+  lineItemVersions: new Map(),
   
   // Settings actions
   fetchSettings: async () => {
@@ -121,6 +127,8 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
       set({ 
         currentInvoice: invoice,
         currentInvoiceLoading: false,
+        currentInvoiceVersion: 0,
+        lineItemVersions: new Map(),
         invoices: [...invoices, {
           id: invoice.id,
           number: invoice.number,
@@ -159,7 +167,12 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
     set({ currentInvoiceLoading: true, currentInvoiceError: null });
     try {
       const invoice = await invoiceApi.getInvoice(id);
-      set({ currentInvoice: invoice, currentInvoiceLoading: false });
+      set({ 
+        currentInvoice: invoice, 
+        currentInvoiceLoading: false,
+        currentInvoiceVersion: 0,
+        lineItemVersions: new Map()
+      });
       get().checkUndoRedo();
       get().startAutosave();
     } catch (error) {
@@ -168,14 +181,16 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   },
   
   updateInvoice: async (updates) => {
-    const { currentInvoice, updateTimers } = get();
+    const { currentInvoice, updateTimers, currentInvoiceVersion } = get();
     if (!currentInvoice) return;
     
     // Update local state immediately for optimistic UI
     const optimisticInvoice = { ...currentInvoice, ...updates };
+    const nextVersion = currentInvoiceVersion + 1;
     set({ 
       currentInvoice: optimisticInvoice,
-      hasUnsavedChanges: true // Set immediately for user feedback
+      hasUnsavedChanges: true, // Set immediately for user feedback
+      currentInvoiceVersion: nextVersion
     });
     
     // Clear existing timer for invoice updates
@@ -188,6 +203,9 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
     const timer = setTimeout(async () => {
       try {
         const invoice = await invoiceApi.updateInvoice(optimisticInvoice);
+        if (get().currentInvoiceVersion !== nextVersion) {
+          return;
+        }
         set({ 
           currentInvoice: invoice
         });
@@ -224,15 +242,24 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   },
   
   updateInvoiceImmediate: async (updates) => {
-    const { currentInvoice } = get();
+    const { currentInvoice, currentInvoiceVersion } = get();
     if (!currentInvoice) return;
     
+    const updatedInvoice = { ...currentInvoice, ...updates };
+    const nextVersion = currentInvoiceVersion + 1;
+    set({
+      currentInvoice: updatedInvoice,
+      hasUnsavedChanges: true,
+      currentInvoiceVersion: nextVersion
+    });
+
     try {
-      const updatedInvoice = { ...currentInvoice, ...updates };
       const invoice = await invoiceApi.updateInvoice(updatedInvoice);
+      if (get().currentInvoiceVersion !== nextVersion) {
+        return;
+      }
       set({ 
-        currentInvoice: invoice,
-        hasUnsavedChanges: true
+        currentInvoice: invoice
       });
       get().checkUndoRedo();
       
@@ -268,7 +295,12 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
     updateTimers.clear();
     
     get().stopAutosave();
-    set({ currentInvoice: null, hasUnsavedChanges: false });
+    set({ 
+      currentInvoice: null, 
+      hasUnsavedChanges: false,
+      currentInvoiceVersion: 0,
+      lineItemVersions: new Map()
+    });
   },
 
   fetchCurrentInvoice: async () => {
@@ -277,7 +309,10 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
     
     try {
       const invoice = await invoiceApi.getInvoice(currentInvoice.id);
-      set({ currentInvoice: invoice });
+      set({ 
+        currentInvoice: invoice,
+        lineItemVersions: new Map()
+      });
       
       // Update the invoice in the list as well
       const invoices = get().invoices.map(inv => 
@@ -304,7 +339,7 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   },
   
   updateLineItem: async (itemId, updates) => {
-    const { currentInvoice, updateTimers } = get();
+    const { currentInvoice, updateTimers, lineItemVersions } = get();
     if (!currentInvoice) return;
     
     const item = currentInvoice.line_items.find(i => i.id === itemId);
@@ -314,9 +349,18 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
     const optimisticLineItems = currentInvoice.line_items.map(i => 
       i.id === itemId ? { ...i, ...updates } : i
     );
+    const optimisticItem = optimisticLineItems.find(i => i.id === itemId);
+    if (!optimisticItem) return;
+
+    const currentVersion = lineItemVersions.get(itemId) ?? 0;
+    const nextVersion = currentVersion + 1;
+    const nextLineItemVersions = new Map(lineItemVersions);
+    nextLineItemVersions.set(itemId, nextVersion);
+
     set({ 
       currentInvoice: { ...currentInvoice, line_items: optimisticLineItems },
-      hasUnsavedChanges: true // Set immediately for user feedback
+      hasUnsavedChanges: true, // Set immediately for user feedback
+      lineItemVersions: nextLineItemVersions
     });
     
     // Clear existing timer for this line item
@@ -328,8 +372,11 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
     // Set new timer for debounced API call
     const timer = setTimeout(async () => {
       try {
-        const updatedItem = { ...item, ...updates };
-        const invoice = await invoiceApi.updateLineItem(itemId, updatedItem);
+        const invoice = await invoiceApi.updateLineItem(itemId, optimisticItem);
+        const latestVersion = get().lineItemVersions.get(itemId) ?? 0;
+        if (latestVersion !== nextVersion) {
+          return;
+        }
         set({ currentInvoice: invoice });
         get().checkUndoRedo();
       } catch (error) {
@@ -344,16 +391,36 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   },
   
   updateLineItemImmediate: async (itemId, updates) => {
-    const { currentInvoice } = get();
+    const { currentInvoice, lineItemVersions } = get();
     if (!currentInvoice) return;
     
     const item = currentInvoice.line_items.find(i => i.id === itemId);
     if (!item) return;
     
+    const optimisticLineItems = currentInvoice.line_items.map(i => 
+      i.id === itemId ? { ...i, ...updates } : i
+    );
+    const optimisticItem = optimisticLineItems.find(i => i.id === itemId);
+    if (!optimisticItem) return;
+
+    const currentVersion = lineItemVersions.get(itemId) ?? 0;
+    const nextVersion = currentVersion + 1;
+    const nextLineItemVersions = new Map(lineItemVersions);
+    nextLineItemVersions.set(itemId, nextVersion);
+
+    set({
+      currentInvoice: { ...currentInvoice, line_items: optimisticLineItems },
+      hasUnsavedChanges: true,
+      lineItemVersions: nextLineItemVersions
+    });
+
     try {
-      const updatedItem = { ...item, ...updates };
-      const invoice = await invoiceApi.updateLineItem(itemId, updatedItem);
-      set({ currentInvoice: invoice, hasUnsavedChanges: true });
+      const invoice = await invoiceApi.updateLineItem(itemId, optimisticItem);
+      const latestVersion = get().lineItemVersions.get(itemId) ?? 0;
+      if (latestVersion !== nextVersion) {
+        return;
+      }
+      set({ currentInvoice: invoice });
       get().checkUndoRedo();
     } catch (error) {
       set({ currentInvoiceError: error instanceof Error ? error.message : String(error) });
@@ -364,7 +431,14 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
   deleteLineItem: async (itemId) => {
     try {
       const invoice = await invoiceApi.deleteLineItem(itemId);
-      set({ currentInvoice: invoice, hasUnsavedChanges: true });
+      const { lineItemVersions } = get();
+      const nextLineItemVersions = new Map(lineItemVersions);
+      nextLineItemVersions.delete(itemId);
+      set({ 
+        currentInvoice: invoice, 
+        hasUnsavedChanges: true,
+        lineItemVersions: nextLineItemVersions
+      });
       get().checkUndoRedo();
     } catch (error) {
       set({ currentInvoiceError: error instanceof Error ? error.message : String(error) });

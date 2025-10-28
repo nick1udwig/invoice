@@ -5,7 +5,11 @@ import LineItemTable from './LineItemTable';
 import InvoiceTotals from './InvoiceTotals';
 import './InvoiceEditor.css';
 
-const InvoiceEditor: React.FC = () => {
+interface InvoiceEditorProps {
+  onBack: () => void;
+}
+
+const InvoiceEditor: React.FC<InvoiceEditorProps> = ({ onBack }) => {
   const {
     currentInvoice,
     currentInvoiceLoading,
@@ -84,6 +88,12 @@ const InvoiceEditor: React.FC = () => {
     <div className="invoice-editor">
       <div className="invoice-editor-toolbar">
         <div className="toolbar-left">
+          <button 
+            onClick={onBack}
+            className="btn btn-secondary back-button"
+          >
+            ← Invoices
+          </button>
           <button 
             onClick={undo} 
             disabled={!canUndo}

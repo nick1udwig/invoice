@@ -1,5 +1,7 @@
 .line-items-container {
   margin: 2rem 0;
+  overflow-x: auto;
+  padding-bottom: 1rem;
 }
 
 .line-items-header {
@@ -22,6 +24,7 @@
 
 .line-items-table {
   width: 100%;
+  min-width: 0;
   border-collapse: collapse;
   background: var(--surface);
   border: 1px solid var(--border-color);
@@ -160,6 +163,7 @@
   font-size: inherit;
   background-color: var(--surface);
   color: var(--text-primary);
+  min-height: 2.5rem;
 }
 
 .number-input:focus {
@@ -192,22 +196,27 @@
 .btn-icon {
   width: 32px;
   height: 32px;
-  border: none;
-  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  border-radius: 999px;
   cursor: pointer;
   display: inline-flex;
   align-items: center;
   justify-content: center;
   transition: all 0.2s ease;
-  background: transparent;
+  background: var(--surface);
   color: var(--text-secondary);
-  font-size: 1.5rem;
+  font-size: 1.125rem;
   line-height: 1;
 }
 
-.delete-btn:hover {
-  background-color: rgba(211, 47, 47, 0.1);
+.btn-icon:hover {
+  border-color: var(--error-color);
+  background-color: rgba(211, 47, 47, 0.08);
   color: var(--error-color);
+}
+
+.delete-btn {
+  font-weight: 600;
 }
 
 @media (max-width: 768px) {
@@ -245,6 +254,186 @@
   }
 }
 
+@media (max-width: 680px) {
+  .line-items-header {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .line-items-header .btn {
+    width: 100%;
+  }
+
+  .line-items-container {
+    margin: 1.5rem 0;
+    padding-bottom: 1.25rem;
+    overflow-x: visible;
+  }
+
+  .line-items-table {
+    border: none;
+    border-radius: 0;
+    background: transparent;
+  }
+
+  .line-items-table thead {
+    display: none;
+  }
+
+  .line-items-table tbody {
+    display: block;
+  }
+
+  .line-items-table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "description actions"
+      "quantity quantity"
+      "rate rate"
+      "amount amount"
+      "receipt receipt";
+    gap: 0.9rem 1rem;
+    padding: 1.1rem 0;
+    border-bottom: 1px solid var(--border-color);
+  }
+
+  .line-items-table tbody tr:first-child {
+    border-top: 1px solid var(--border-color);
+  }
+
+  .line-items-table td {
+    padding: 0;
+    border: none;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  .line-items-table td::before {
+    content: attr(data-label);
+    font-size: 0.68rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    white-space: nowrap;
+  }
+
+  .line-items-table td.description-col {
+    grid-area: description;
+  }
+
+  .line-items-table td.description-col .editable-cell,
+  .line-items-table td.description-col .edit-input {
+    font-size: 1rem;
+  }
+
+  .line-items-table td.quantity-col {
+    grid-area: quantity;
+    width: 100%;
+  }
+
+  .line-items-table td.rate-col {
+    grid-area: rate;
+    width: 100%;
+  }
+
+  .line-items-table td.amount-col {
+    grid-area: amount;
+    flex-direction: column;
+    align-items: flex-end;
+    justify-content: center;
+    font-weight: 600;
+    font-size: 1.05rem;
+    text-align: right;
+    gap: 0.5rem;
+  }
+
+  .line-items-table td.amount-col::before {
+    margin: 0;
+  }
+
+  .line-items-table td.receipt-col {
+    grid-area: receipt;
+    flex-direction: column;
+    gap: 0.35rem;
+    align-items: flex-start;
+  }
+
+  .line-items-table td.receipt-col::before {
+    display: block;
+    margin-bottom: 0.25rem;
+  }
+
+  .line-items-table td.actions-col {
+    grid-area: actions;
+    flex-direction: row;
+    align-items: flex-start;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    justify-self: flex-end;
+    align-self: flex-start;
+  }
+
+  .line-items-table td.actions-col::before {
+    display: none;
+  }
+
+  .line-items-table td .number-input,
+  .line-items-table td .rate-input-wrapper,
+  .line-items-table td .rate-input-wrapper .number-input {
+    width: 100%;
+  }
+
+  .line-items-table td .number-input {
+    text-align: right;
+    font-size: 1rem;
+    display: block;
+  }
+
+  .line-items-table td.quantity-col .number-input,
+  .line-items-table td.rate-col .number-input {
+    max-width: none;
+  }
+
+  .line-items-table td.rate-col .rate-input-wrapper {
+    width: 100%;
+    display: flex;
+    align-items: center;
+  }
+
+  .line-items-table td.rate-col .rate-input-wrapper .number-input {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .line-items-table td .currency-symbol {
+    left: 0.5rem;
+  }
+
+  .line-items-table td.empty-state {
+    padding: 2rem 1rem;
+    display: block;
+  }
+
+  .line-items-table td.empty-state::before {
+    display: none;
+  }
+
+  .btn-icon {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+.amount-value {
+  white-space: nowrap;
+  text-align: right;
+  width: 100%;
+  display: block;
+}
 /* Receipt Modal */
 .receipt-modal {
   display: flex;

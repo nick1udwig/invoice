@@ -1,25 +1,15 @@
 // INVOICE HYPERWARE APP
 // A comprehensive invoice management application for the Hyperware platform
 
-// CRITICAL IMPORTS - DO NOT MODIFY THESE
-// The hyperprocess_macro provides everything you need including:
-// - Async/await support (custom runtime)
-// - Automatic WIT (WebAssembly Interface Types) generation
-// - State persistence
-// - HTTP/WebSocket bindings
-use hyperprocess_macro::*;
+use hyperprocess_macro::hyperprocess;
 
-use hyperware_app_common::SaveOptions;
-
-// HYPERWARE PROCESS LIB IMPORTS
-// These are provided by the hyperprocess_macro, DO NOT add hyperware_process_lib to Cargo.toml
 use hyperware_process_lib::{
-    our,                    // Gets current node/process identity
-    homepage::add_to_homepage,  // Adds app icon to Hyperware homepage
-    vfs::{self, create_drive, create_file, open_file, open_dir, remove_file}, // VFS operations
+    our,
+    homepage::add_to_homepage,
+    hyperapp::SaveOptions,
+    vfs::{self, create_drive, create_file, open_file, open_dir, remove_file},
 };
 
-// Standard imports for serialization
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use base64::{Engine as _, engine::general_purpose};
@@ -100,9 +90,6 @@ pub struct InvoiceSnapshot {
     pub timestamp: u64,
 }
 
-// STEP 1: DEFINE YOUR APP STATE
-// This struct holds all persistent data for your app
-// It MUST derive Default, Serialize, and Deserialize
 #[derive(Default, Serialize, Deserialize)]
 pub struct AppState {
     pub settings: Option<InvoiceSettings>,
@@ -114,28 +101,17 @@ pub struct AppState {
     pub has_unsaved_changes: bool,
 }
 
-// STEP 2: IMPLEMENT YOUR APP LOGIC
-// The #[hyperprocess] attribute goes HERE, before the impl block
 #[hyperprocess(
-    // App name shown in the UI and logs
     name = "Invoice",
-
-    // Enable UI serving at root path
     ui = Some(HttpBindingConfig::default()),
-
-    // HTTP API endpoints - MUST include /api for frontend communication
     endpoints = vec![
         Binding::Http {
             path: "/api",
-            config: HttpBindingConfig::new(false, false, false, None)
+            config: HttpBindingConfig::default(),
         }
     ],
-
-    // State persistence options - save every 5 seconds
     save_config = SaveOptions::OnDiff,
-
-    // WIT world name - must match package naming convention
-    wit_world = "invoice-os-v0"
+    wit_world = "invoice-nick-dot-hypr-v0"
 )]
 impl AppState {
     // INITIALIZATION FUNCTION
@@ -1135,7 +1111,7 @@ impl AppState {
             --border-color: rgba(0, 0, 0, 0.15);
             --table-header-bg: #e8e8d5;
         }}
-        
+
         /* Dark theme */
         @media (prefers-color-scheme: dark) {{
             :root {{
@@ -1148,63 +1124,63 @@ impl AppState {
                 --table-header-bg: #333333;
             }}
         }}
-        
-        body {{ 
-            font-family: Arial, sans-serif; 
-            margin: 40px; 
-            background-color: var(--background); 
-            color: var(--text-primary); 
+
+        body {{
+            font-family: Arial, sans-serif;
+            margin: 40px;
+            background-color: var(--background);
+            color: var(--text-primary);
         }}
         .header {{ display: flex; justify-content: space-between; margin-bottom: 40px; }}
         .invoice-details {{ text-align: right; }}
         .contact-info {{ margin-bottom: 30px; }}
-        table {{ 
-            width: 100%; 
-            border-collapse: collapse; 
-            margin: 20px 0; 
-            background-color: var(--surface); 
+        table {{
+            width: 100%;
+            border-collapse: collapse;
+            margin: 20px 0;
+            background-color: var(--surface);
         }}
-        th, td {{ 
-            padding: 10px; 
-            text-align: left; 
-            border-bottom: 1px solid var(--border-color); 
+        th, td {{
+            padding: 10px;
+            text-align: left;
+            border-bottom: 1px solid var(--border-color);
         }}
         th {{ background-color: var(--table-header-bg); }}
         .totals {{ text-align: right; margin-top: 20px; }}
         .total-row {{ display: flex; justify-content: flex-end; margin: 5px 0; }}
         .total-label {{ width: 150px; }}
         .total-value {{ width: 100px; text-align: right; }}
-        .receipt-link {{ 
-            color: var(--primary-color); 
-            text-decoration: underline; 
-            cursor: pointer; 
-            font-size: 0.9em; 
+        .receipt-link {{
+            color: var(--primary-color);
+            text-decoration: underline;
+            cursor: pointer;
+            font-size: 0.9em;
         }}
         .receipt-link:hover {{ opacity: 0.8; }}
-        .modal {{ 
-            display: none; 
-            position: fixed; 
-            z-index: 1000; 
-            left: 0; 
-            top: 0; 
-            width: 100%; 
-            height: 100%; 
-            background-color: rgba(0,0,0,0.9); 
+        .modal {{
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.9);
         }}
-        .modal-content {{ 
-            margin: 2% auto; 
-            display: block; 
-            max-width: 90%; 
-            max-height: 90%; 
+        .modal-content {{
+            margin: 2% auto;
+            display: block;
+            max-width: 90%;
+            max-height: 90%;
         }}
-        .close {{ 
-            position: absolute; 
-            top: 15px; 
-            right: 35px; 
-            color: #f1f1f1; 
-            font-size: 40px; 
-            font-weight: bold; 
-            cursor: pointer; 
+        .close {{
+            position: absolute;
+            top: 15px;
+            right: 35px;
+            color: #f1f1f1;
+            font-size: 40px;
+            font-weight: bold;
+            cursor: pointer;
         }}
         .close:hover {{ color: #bbb; }}
         @media print {{
