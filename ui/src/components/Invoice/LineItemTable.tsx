@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useMemo } from 'react';
 import type { LineItem } from '../../types/invoice';
 import { useInvoiceStore } from '../../store/invoice';
 import { uploadReceipt, getReceipt } from '../../utils/invoiceApi';
@@ -21,6 +21,25 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
   const previousItemIdsRef = useRef<string[]>(items.map((item) => item.id));
   const pendingScrollRef = useRef(false);
   const modalRef = useRef<HTMLDivElement>(null);
+
+  const receiptPreviewUrl = useMemo(() => {
+    if (!receiptModalData) {
+      return null;
+    }
+    if (receiptModalData.mimeType === 'application/pdf') {
+      return null;
+    }
+    const blob = new Blob([receiptModalData.data], { type: receiptModalData.mimeType });
+    return URL.createObjectURL(blob);
+  }, [receiptModalData]);
+
+  useEffect(() => {
+    return () => {
+      if (receiptPreviewUrl) {
+        URL.revokeObjectURL(receiptPreviewUrl);
+      }
+    };
+  }, [receiptPreviewUrl]);
 
   const handleFieldChange = (
     itemId: string,
@@ -49,20 +68,20 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
 
   const handleReceiptUpload = async (itemId: string, file: File) => {
     if (!file) return;
-    
+
     // Validate file type
-    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf'];
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'application/pdf', 'text/html'];
     if (!allowedTypes.includes(file.type)) {
-      alert('Please upload an image (JPEG, PNG) or PDF file');
+      alert('Please upload an image (JPEG, PNG), PDF, or HTML file');
       return;
     }
-    
+
     // Validate file size (5MB max)
     if (file.size > 5 * 1024 * 1024) {
       alert('File size must be less than 5MB');
       return;
     }
-    
+
     setUploadingReceipt(itemId);
     try {
       await uploadReceipt(itemId, file);
@@ -87,10 +106,10 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
     }
     try {
       const receiptData = await getReceipt(receiptPath);
-      
+
       // Convert number array to Uint8Array
       const uint8Array = new Uint8Array(receiptData);
-      
+
       // Determine mime type from filename
       let mimeType = 'application/octet-stream';
       if (fileName.toLowerCase().endsWith('.pdf')) {
@@ -99,8 +118,10 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
         mimeType = 'image/jpeg';
       } else if (fileName.toLowerCase().endsWith('.png')) {
         mimeType = 'image/png';
+      } else if (fileName.toLowerCase().endsWith('.html') || fileName.toLowerCase().endsWith('.htm')) {
+        mimeType = 'text/html';
       }
-      
+
       setReceiptModalData({ data: uint8Array, fileName, mimeType });
     } catch (error) {
       console.error('Failed to view receipt:', error);
@@ -156,10 +177,10 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
     e.preventDefault();
     e.stopPropagation();
     setDragOverItemId(null);
-    
+
     const files = Array.from(e.dataTransfer.files);
     const file = files[0];
-    
+
     if (file) {
       await handleReceiptUpload(itemId, file);
     }
@@ -231,7 +252,7 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
             </tr>
           ) : (
             items.map((item) => (
-              <tr 
+              <tr
                 key={item.id}
                 ref={(el) => {
                   rowRefs.current[item.id] = el;
@@ -253,7 +274,7 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
                       className="edit-input"
                     />
                   ) : (
-                    <div 
+                    <div
                       onClick={() => setEditingId(item.id)}
                       className="editable-cell"
                     >
@@ -306,7 +327,7 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
                       <input
                         ref={(el) => fileInputRefs.current[item.id] = el}
                         type="file"
-                        accept="image/*,.pdf"
+                        accept="image/*,.pdf,.html,.htm,text/html"
                         style={{ display: 'none' }}
                         onChange={(e) => {
                           const file = e.target.files?.[0];
@@ -347,21 +368,21 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
         <span className="modal-close" onClick={closeModal}>&times;</span>
         <div className="modal-content">
           {receiptModalData.mimeType === 'application/pdf' ? (
-            <PDFViewer 
+            <PDFViewer
               pdfData={receiptModalData.data}
               fileName={receiptModalData.fileName}
             />
-          ) : (
-            <div style={{ 
+          ) : receiptModalData.mimeType === 'text/html' ? (
+            <div style={{
               backgroundColor: 'var(--surface)',
-              maxWidth: '90vw', 
-              maxHeight: '90vh', 
-              overflow: 'auto',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              overflow: 'hidden',
               display: 'flex',
               flexDirection: 'column',
               borderRadius: '8px'
             }}>
-              <div style={{ 
+              <div style={{
                 padding: '16px 20px',
                 borderBottom: '1px solid var(--border-color)',
                 backgroundColor: 'var(--surface)',
@@ -373,7 +394,7 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
                 justifyContent: 'space-between'
               }}>
                 <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>{receiptModalData.fileName}</h3>
-                <button 
+                <button
                   onClick={() => {
                     const blob = new Blob([receiptModalData.data], { type: receiptModalData.mimeType });
                     const url = URL.createObjectURL(blob);
@@ -385,7 +406,66 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
                     document.body.removeChild(a);
                     URL.revokeObjectURL(url);
                   }}
-                  style={{ 
+                  style={{
+                    padding: '6px 16px',
+                    backgroundColor: 'var(--primary-color)',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 500
+                  }}
+                >
+                  Save
+                </button>
+              </div>
+              <iframe
+                title={receiptModalData.fileName}
+                src={receiptPreviewUrl ?? ''}
+                style={{
+                  border: 'none',
+                  width: '80vw',
+                  maxWidth: 'min(650px, 100%)',
+                  height: '80vh',
+                  background: 'white'
+                }}
+              />
+            </div>
+          ) : (
+            <div style={{
+              backgroundColor: 'var(--surface)',
+              maxWidth: '90vw',
+              maxHeight: '90vh',
+              overflow: 'auto',
+              display: 'flex',
+              flexDirection: 'column',
+              borderRadius: '8px'
+            }}>
+              <div style={{
+                padding: '16px 20px',
+                borderBottom: '1px solid var(--border-color)',
+                backgroundColor: 'var(--surface)',
+                position: 'sticky',
+                top: 0,
+                zIndex: 1,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between'
+              }}>
+                <h3 style={{ margin: 0, color: 'var(--text-primary)' }}>{receiptModalData.fileName}</h3>
+                <button
+                  onClick={() => {
+                    const blob = new Blob([receiptModalData.data], { type: receiptModalData.mimeType });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = receiptModalData.fileName;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(url);
+                  }}
+                  style={{
                     padding: '6px 16px',
                     backgroundColor: 'var(--primary-color)',
                     color: 'white',
@@ -406,19 +486,14 @@ const LineItemTable: React.FC<LineItemTableProps> = ({ items, onAddItem }) => {
                 alignItems: 'center',
                 flex: 1
               }}>
-                <img 
-                  src={URL.createObjectURL(new Blob([receiptModalData.data], { type: receiptModalData.mimeType }))} 
+                <img
+                  src={receiptPreviewUrl ?? ''}
                   alt={receiptModalData.fileName}
-                  style={{ 
-                    maxWidth: '100%', 
+                  style={{
+                    maxWidth: '100%',
                     maxHeight: '100%',
                     height: 'auto',
                     boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
-                  }}
-                  onLoad={(e) => {
-                    // Clean up the blob URL after the image loads
-                    const img = e.target as HTMLImageElement;
-                    setTimeout(() => URL.revokeObjectURL(img.src), 100);
                   }}
                 />
               </div>

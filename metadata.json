@@ -4,10 +4,11 @@
   "image": "https://raw.githubusercontent.com/nick1udwig/invoice/refs/heads/master/ui/public/invoice256.png",
   "properties": {
     "package_name": "invoice",
-    "current_version": "0.2.1",
+    "current_version": "0.3.0",
     "publisher": "nick.hypr",
     "mirrors": ["nick.hypr", "nick1udwig.os", "diligence.os"],
     "code_hashes": {
+      "0.3.0": "85eafd5b0a00b4c7946c0bd319b49fcbdf42551bf8b9f69b9b41f99e91cb5b14",
       "0.2.1": "46ec574a1633d76d66a7667bb989440baf0b50059f96ba1caaacc890679d159e",
       "0.2.0": "b1aaa63d4120544495deae6903ac0610de4e0072cb7016189d6cdfff3a250bdc",
       "0.1.0": "9cf4ecbf4d87470160bbd75fb8013e125f223680c9a77a7188a8817950c79103"
