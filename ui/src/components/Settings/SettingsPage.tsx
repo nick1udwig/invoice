@@ -12,6 +12,7 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
     settings,
     settingsLoading,
     settingsError,
+    fetchSettings,
     updateSettings,
     uploadLogo,
     uploadPaymentImage
@@ -39,6 +40,10 @@ const SettingsPage: React.FC<SettingsPageProps> = ({ onBack }) => {
     invoice_number_prefix: 'INV-',
     next_invoice_number: 1
   });
+
+  useEffect(() => {
+    fetchSettings();
+  }, [fetchSettings]);
 
   useEffect(() => {
     if (settings) {

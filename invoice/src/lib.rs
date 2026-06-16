@@ -4,15 +4,15 @@
 use hyperprocess_macro::hyperprocess;
 
 use hyperware_process_lib::{
-    our,
     homepage::add_to_homepage,
     hyperapp::SaveOptions,
-    vfs::{self, create_drive, create_file, open_file, open_dir, remove_file},
+    our,
+    vfs::{self, create_drive, create_file, open_dir, open_file, remove_file},
 };
 
+use base64::{engine::general_purpose, Engine as _};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use base64::{Engine as _, engine::general_purpose};
 
 const ICON: &str = include_str!("./icon");
 
@@ -131,16 +131,14 @@ impl AppState {
                 // Load settings if they exist
                 let settings_path = format!("{}/settings.json", drive_path);
                 match open_file(&settings_path, false, Some(5)) {
-                    Ok(file) => {
-                        match file.read_to_string() {
-                            Ok(data) => {
-                                if let Ok(settings) = serde_json::from_str::<InvoiceSettings>(&data) {
-                                    self.settings = Some(settings);
-                                }
+                    Ok(file) => match file.read_to_string() {
+                        Ok(data) => {
+                            if let Ok(settings) = serde_json::from_str::<InvoiceSettings>(&data) {
+                                self.settings = Some(settings);
                             }
-                            Err(_) => println!("No existing settings found"),
                         }
-                    }
+                        Err(_) => println!("No existing settings found"),
+                    },
                     Err(_) => println!("No settings file found"),
                 }
 
@@ -166,26 +164,15 @@ impl AppState {
 
     #[http]
     async fn update_settings(&mut self, request_body: String) -> Result<String, String> {
-        let settings: InvoiceSettings = serde_json::from_str(&request_body)
-            .map_err(|e| format!("Invalid settings: {}", e))?;
+        let settings: InvoiceSettings =
+            serde_json::from_str(&request_body).map_err(|e| format!("Invalid settings: {}", e))?;
 
         self.settings = Some(settings.clone());
 
-        // Save settings to VFS
-        let package_id = our().package_id();
-        let drive_path = format!("/{}/invoice", package_id);
-        let settings_path = format!("{}/settings.json", drive_path);
+        self.save_settings(&settings)?;
+        self.apply_settings_to_current_invoice(true)?;
 
-        match create_file(&settings_path, Some(5)) {
-            Ok(file) => {
-                let data = serde_json::to_vec(&settings)
-                    .map_err(|e| format!("Failed to serialize settings: {}", e))?;
-                file.write(&data)
-                    .map_err(|e| format!("Failed to write settings: {}", e))?;
-                Ok("Settings updated".to_string())
-            }
-            Err(e) => Err(format!("Failed to create settings file: {}", e)),
-        }
+        Ok("Settings updated".to_string())
     }
 
     #[http]
@@ -239,19 +226,14 @@ impl AppState {
 
         // Generate invoice number
         let invoice_number = if let Some(ref mut settings) = self.settings {
-            let number = format!("{}{:04}", settings.invoice_number_prefix, settings.next_invoice_number);
+            let number = format!(
+                "{}{:04}",
+                settings.invoice_number_prefix, settings.next_invoice_number
+            );
             settings.next_invoice_number += 1;
+            let settings_to_save = settings.clone();
 
-            // Save updated settings to VFS
-            let package_id = our().package_id();
-            let drive_path = format!("/{}/invoice", package_id);
-            let settings_path = format!("{}/settings.json", drive_path);
-
-            if let Ok(file) = create_file(&settings_path, Some(5)) {
-                if let Ok(data) = serde_json::to_vec(&settings) {
-                    let _ = file.write(&data);
-                }
-            }
+            self.save_settings(&settings_to_save)?;
 
             number
         } else {
@@ -283,7 +265,10 @@ impl AppState {
             name: None,
             date: date.clone(),
             due_date: None,
-            invoicer: self.settings.as_ref().map(|s| s.invoicer.clone())
+            invoicer: self
+                .settings
+                .as_ref()
+                .map(|s| s.invoicer.clone())
                 .unwrap_or(ContactInfo {
                     name: String::new(),
                     company: None,
@@ -292,7 +277,10 @@ impl AppState {
                     phone: None,
                     logo_path: None,
                 }),
-            invoicee: self.settings.as_ref().map(|s| s.invoicee.clone())
+            invoicee: self
+                .settings
+                .as_ref()
+                .map(|s| s.invoicee.clone())
                 .unwrap_or(ContactInfo {
                     name: String::new(),
                     company: None,
@@ -306,7 +294,10 @@ impl AppState {
             tax_percent: 0.0,
             notes: None,
             payment_info: self.settings.as_ref().and_then(|s| s.payment_info.clone()),
-            payment_image_path: self.settings.as_ref().and_then(|s| s.payment_image_path.clone()),
+            payment_image_path: self
+                .settings
+                .as_ref()
+                .and_then(|s| s.payment_image_path.clone()),
             status: InvoiceStatus::Draft,
             created_at: timestamp,
             updated_at: timestamp,
@@ -330,8 +321,7 @@ impl AppState {
         // Save invoice
         self.save_current_invoice()?;
 
-        serde_json::to_string(&invoice)
-            .map_err(|e| format!("Failed to serialize invoice: {}", e))
+        serde_json::to_string(&invoice).map_err(|e| format!("Failed to serialize invoice: {}", e))
     }
 
     #[http]
@@ -342,7 +332,9 @@ impl AppState {
         // Check if it's already the current invoice
         if let Some(ref current) = self.current_invoice {
             if current.id == id {
-                return serde_json::to_string(current)
+                self.apply_settings_to_current_invoice(true)?;
+
+                return serde_json::to_string(self.current_invoice.as_ref().unwrap())
                     .map_err(|e| format!("Failed to serialize invoice: {}", e));
             }
         }
@@ -363,18 +355,26 @@ impl AppState {
 
                 let invoice_path = format!("{}/{}/{}/invoice.json", drive_path, date, invoice_dir);
                 match open_file(&invoice_path, false, Some(5)) {
-                    Ok(file) => {
-                        match file.read_to_string() {
-                            Ok(data) => {
-                                let invoice: Invoice = serde_json::from_str(&data)
-                                    .map_err(|e| format!("Failed to parse invoice: {}", e))?;
-                                self.current_invoice = Some(invoice.clone());
-                                serde_json::to_string(&invoice)
-                                    .map_err(|e| format!("Failed to serialize invoice: {}", e))
+                    Ok(file) => match file.read_to_string() {
+                        Ok(data) => {
+                            let mut invoice: Invoice = serde_json::from_str(&data)
+                                .map_err(|e| format!("Failed to parse invoice: {}", e))?;
+                            let settings_changed = self.apply_settings_to_invoice(&mut invoice);
+                            if settings_changed {
+                                invoice.updated_at = current_timestamp();
                             }
-                            Err(e) => Err(format!("Failed to read invoice: {}", e)),
+
+                            self.current_invoice = Some(invoice.clone());
+                            if settings_changed {
+                                self.has_unsaved_changes = true;
+                                self.save_current_invoice()?;
+                            }
+
+                            serde_json::to_string(&invoice)
+                                .map_err(|e| format!("Failed to serialize invoice: {}", e))
                         }
-                    }
+                        Err(e) => Err(format!("Failed to read invoice: {}", e)),
+                    },
                     Err(e) => Err(format!("Invoice not found: {}", e)),
                 }
             }
@@ -414,6 +414,7 @@ impl AppState {
 
         // Update invoice
         let mut updated_invoice = updates;
+        self.apply_settings_to_invoice(&mut updated_invoice);
         updated_invoice.updated_at = timestamp;
 
         self.current_invoice = Some(updated_invoice.clone());
@@ -454,7 +455,10 @@ impl AppState {
                 summary.number.clone()
             };
 
-            let invoice_path = format!("{}/{}/{}/invoice.json", drive_path, summary.date, invoice_dir);
+            let invoice_path = format!(
+                "{}/{}/{}/invoice.json",
+                drive_path, summary.date, invoice_dir
+            );
             let _ = remove_file(&invoice_path, Some(5));
 
             // Clear current invoice if it's the deleted one
@@ -487,10 +491,13 @@ impl AppState {
             self.redo_stack.clear();
 
             // Create new line item
-            let id = format!("item-{}", std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_millis());
+            let id = format!(
+                "item-{}",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_millis()
+            );
             let new_item = LineItem {
                 id,
                 description: String::new(),
@@ -535,8 +542,8 @@ impl AppState {
             updates: LineItem,
         }
 
-        let req: UpdateLineItemRequest = serde_json::from_str(&request_body)
-            .map_err(|e| format!("Invalid request: {}", e))?;
+        let req: UpdateLineItemRequest =
+            serde_json::from_str(&request_body).map_err(|e| format!("Invalid request: {}", e))?;
 
         if let Some(ref mut invoice) = self.current_invoice {
             // Save current state for undo
@@ -585,8 +592,8 @@ impl AppState {
 
     #[http]
     async fn delete_line_item(&mut self, request_body: String) -> Result<String, String> {
-        let item_id: String = serde_json::from_str(&request_body)
-            .map_err(|e| format!("Invalid item ID: {}", e))?;
+        let item_id: String =
+            serde_json::from_str(&request_body).map_err(|e| format!("Invalid item ID: {}", e))?;
 
         if let Some(ref mut invoice) = self.current_invoice {
             // Save current state for undo
@@ -631,8 +638,8 @@ impl AppState {
 
     #[http]
     async fn reorder_line_items(&mut self, request_body: String) -> Result<String, String> {
-        let item_ids: Vec<String> = serde_json::from_str(&request_body)
-            .map_err(|e| format!("Invalid item IDs: {}", e))?;
+        let item_ids: Vec<String> =
+            serde_json::from_str(&request_body).map_err(|e| format!("Invalid item IDs: {}", e))?;
 
         if let Some(ref mut invoice) = self.current_invoice {
             // Save current state for undo
@@ -680,12 +687,15 @@ impl AppState {
             file_data: Vec<u8>,
         }
 
-        let request: ReceiptUploadRequest = serde_json::from_slice(&request_body)
-            .map_err(|e| format!("Invalid request: {}", e))?;
+        let request: ReceiptUploadRequest =
+            serde_json::from_slice(&request_body).map_err(|e| format!("Invalid request: {}", e))?;
 
         if let Some(ref mut invoice) = self.current_invoice {
             // Find the line item
-            let item_index = invoice.line_items.iter().position(|item| item.id == request.item_id)
+            let item_index = invoice
+                .line_items
+                .iter()
+                .position(|item| item.id == request.item_id)
                 .ok_or("Line item not found")?;
 
             // Save current state for undo
@@ -724,9 +734,11 @@ impl AppState {
                     invoice.line_items[item_index].receipt_path = Some(receipt_path.clone());
 
                     // If the line item description is empty or default, use the filename without extension
-                    if invoice.line_items[item_index].description.is_empty() ||
-                       invoice.line_items[item_index].description == "Click to add description" {
-                        let file_stem = request.file_name
+                    if invoice.line_items[item_index].description.is_empty()
+                        || invoice.line_items[item_index].description == "Click to add description"
+                    {
+                        let file_stem = request
+                            .file_name
                             .rsplit('.')
                             .skip(1)
                             .collect::<Vec<_>>()
@@ -766,10 +778,9 @@ impl AppState {
             .map_err(|e| format!("Invalid receipt path: {}", e))?;
 
         match open_file(&receipt_path, false, Some(5)) {
-            Ok(file) => {
-                file.read()
-                    .map_err(|e| format!("Failed to read receipt: {}", e))
-            }
+            Ok(file) => file
+                .read()
+                .map_err(|e| format!("Failed to read receipt: {}", e)),
             Err(e) => Err(format!("Receipt not found: {}", e)),
         }
     }
@@ -858,9 +869,12 @@ impl AppState {
 
     #[http]
     async fn generate_pdf(&mut self) -> Result<String, String> {
-        if let Some(ref invoice) = self.current_invoice {
+        if self.current_invoice.is_some() {
+            self.apply_settings_to_current_invoice(true)?;
+            let invoice = self.current_invoice.clone().unwrap();
+
             // Generate HTML for the invoice
-            let html = self.generate_invoice_html(invoice);
+            let html = self.generate_invoice_html(&invoice);
 
             // Save the HTML to VFS
             let package_id = our().package_id();
@@ -872,7 +886,10 @@ impl AppState {
                 invoice.number.clone()
             };
 
-            let html_path = format!("{}/{}/{}/invoice.html", drive_path, invoice.date, invoice_dir);
+            let html_path = format!(
+                "{}/{}/{}/invoice.html",
+                drive_path, invoice.date, invoice_dir
+            );
             match create_file(&html_path, Some(5)) {
                 Ok(file) => {
                     file.write(html.as_bytes())
@@ -882,7 +899,8 @@ impl AppState {
                     let response = serde_json::json!({
                         "path": html_path,
                         "html": html,
-                        "filename": format!("invoice_{}.html", invoice.number)
+                        "filename": format!("invoice_{}.html", invoice.number),
+                        "invoice": invoice
                     });
                     serde_json::to_string(&response)
                         .map_err(|e| format!("Failed to serialize response: {}", e))
@@ -933,8 +951,79 @@ fn calculate_invoice_total(invoice: &Invoice) -> f64 {
     after_discount + tax
 }
 
+fn current_timestamp() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap()
+        .as_secs()
+}
+
 // Helper methods implementation
 impl AppState {
+    fn save_settings(&self, settings: &InvoiceSettings) -> Result<(), String> {
+        let package_id = our().package_id();
+        let drive_path = format!("/{}/invoice", package_id);
+        let settings_path = format!("{}/settings.json", drive_path);
+
+        match create_file(&settings_path, Some(5)) {
+            Ok(file) => {
+                let data = serde_json::to_vec(settings)
+                    .map_err(|e| format!("Failed to serialize settings: {}", e))?;
+                file.write(&data)
+                    .map_err(|e| format!("Failed to write settings: {}", e))
+            }
+            Err(e) => Err(format!("Failed to create settings file: {}", e)),
+        }
+    }
+
+    fn apply_settings_to_invoice(&self, invoice: &mut Invoice) -> bool {
+        self.settings
+            .as_ref()
+            .map(|settings| Self::apply_invoice_settings(invoice, settings))
+            .unwrap_or(false)
+    }
+
+    fn apply_settings_to_current_invoice(&mut self, persist: bool) -> Result<(), String> {
+        let settings = match self.settings.clone() {
+            Some(settings) => settings,
+            None => return Ok(()),
+        };
+
+        let changed = match self.current_invoice.as_mut() {
+            Some(invoice) => Self::apply_invoice_settings(invoice, &settings),
+            None => false,
+        };
+
+        if changed {
+            if let Some(invoice) = self.current_invoice.as_mut() {
+                invoice.updated_at = current_timestamp();
+            }
+            self.has_unsaved_changes = true;
+
+            if persist {
+                self.save_current_invoice()?;
+            }
+        }
+
+        Ok(())
+    }
+
+    fn apply_invoice_settings(invoice: &mut Invoice, settings: &InvoiceSettings) -> bool {
+        let changed = invoice.invoicer != settings.invoicer
+            || invoice.invoicee != settings.invoicee
+            || invoice.payment_info != settings.payment_info
+            || invoice.payment_image_path != settings.payment_image_path;
+
+        if changed {
+            invoice.invoicer = settings.invoicer.clone();
+            invoice.invoicee = settings.invoicee.clone();
+            invoice.payment_info = settings.payment_info.clone();
+            invoice.payment_image_path = settings.payment_image_path.clone();
+        }
+
+        changed
+    }
+
     // Helper method to load invoice summaries
     fn load_invoice_summaries(&mut self, drive_path: &str) {
         match open_dir(drive_path, false, Some(5)) {
@@ -942,7 +1031,10 @@ impl AppState {
                 if let Ok(entries) = dir.read() {
                     for entry in entries {
                         if entry.file_type == vfs::FileType::Directory {
-                            self.load_invoices_from_date_dir(&format!("{}/{}", drive_path, entry.path));
+                            self.load_invoices_from_date_dir(&format!(
+                                "{}/{}",
+                                drive_path, entry.path
+                            ));
                         }
                     }
                 }
@@ -958,7 +1050,8 @@ impl AppState {
                 if let Ok(entries) = dir.read() {
                     for entry in entries {
                         if entry.file_type == vfs::FileType::Directory {
-                            let invoice_path = format!("{}/{}/invoice.json", date_dir_path, entry.path);
+                            let invoice_path =
+                                format!("{}/{}/invoice.json", date_dir_path, entry.path);
                             if let Ok(file) = open_file(&invoice_path, false, Some(5)) {
                                 if let Ok(data) = file.read_to_string() {
                                     if let Ok(invoice) = serde_json::from_str::<Invoice>(&data) {
@@ -981,7 +1074,6 @@ impl AppState {
             Err(_) => {}
         }
     }
-
 
     // Helper method to save current invoice
     fn save_current_invoice(&mut self) -> Result<(), String> {
@@ -1031,7 +1123,9 @@ impl AppState {
 
     // Helper method to generate invoice HTML with embedded receipts
     fn generate_invoice_html(&self, invoice: &Invoice) -> String {
-        let subtotal = invoice.line_items.iter()
+        let subtotal = invoice
+            .line_items
+            .iter()
             .map(|item| {
                 let line_total = item.quantity * item.rate;
                 line_total - (line_total * item.discount_percent / 100.0)
@@ -1055,7 +1149,10 @@ impl AppState {
                         "image/png" // default
                     };
                     let base64_data = general_purpose::STANDARD.encode(&data);
-                    format!(r#"<img src="data:{};base64,{}" alt="Company Logo" style="max-height: 80px; margin-bottom: 1rem; display: block;" />"#, mime_type, base64_data)
+                    format!(
+                        r#"<img src="data:{};base64,{}" alt="Company Logo" style="max-height: 80px; margin-bottom: 1rem; display: block;" />"#,
+                        mime_type, base64_data
+                    )
                 } else {
                     String::new()
                 }
@@ -1074,7 +1171,8 @@ impl AppState {
                     if let Ok(data) = file.read() {
                         let mime_type = if receipt_path.ends_with(".pdf") {
                             "application/pdf"
-                        } else if receipt_path.ends_with(".jpg") || receipt_path.ends_with(".jpeg") {
+                        } else if receipt_path.ends_with(".jpg") || receipt_path.ends_with(".jpeg")
+                        {
                             "image/jpeg"
                         } else if receipt_path.ends_with(".png") {
                             "image/png"
@@ -1094,6 +1192,38 @@ impl AppState {
                     }
                 }
             }
+        }
+
+        let mut payment_html = String::new();
+        if invoice.payment_info.is_some() || invoice.payment_image_path.is_some() {
+            payment_html.push_str("<div class='payment'><h3>Payment Information:</h3>");
+
+            if let Some(ref payment_info) = invoice.payment_info {
+                payment_html.push_str(&format!("<p>{}</p>", payment_info));
+            }
+
+            if let Some(ref payment_image_path) = invoice.payment_image_path {
+                if let Ok(file) = open_file(payment_image_path, false, Some(5)) {
+                    if let Ok(data) = file.read() {
+                        let mime_type = if payment_image_path.ends_with(".png") {
+                            "image/png"
+                        } else if payment_image_path.ends_with(".jpg")
+                            || payment_image_path.ends_with(".jpeg")
+                        {
+                            "image/jpeg"
+                        } else {
+                            "image/png"
+                        };
+                        let base64_data = general_purpose::STANDARD.encode(&data);
+                        payment_html.push_str(&format!(
+                            r#"<img src="data:{};base64,{}" alt="Payment QR Code" style="max-width: 200px; margin-top: 1rem; display: block;" />"#,
+                            mime_type, base64_data
+                        ));
+                    }
+                }
+            }
+
+            payment_html.push_str("</div>");
         }
 
         format!(r#"
@@ -1200,6 +1330,7 @@ impl AppState {
                 <p>{}</p>
                 <p>{}</p>
                 <p>{}</p>
+                <p>{}</p>
             </div>
         </div>
         <div class="invoice-details">
@@ -1214,6 +1345,7 @@ impl AppState {
         <h3>Bill To:</h3>
         <div class="contact-info">
             <p><strong>{}</strong></p>
+            <p>{}</p>
             <p>{}</p>
             <p>{}</p>
             <p>{}</p>
@@ -1302,16 +1434,18 @@ impl AppState {
         "#,
             logo_html,
             invoice.invoicer.name,
-            invoice.invoicer.company.as_ref().unwrap_or(&String::new()),
+            invoice.invoicer.company.as_deref().unwrap_or(""),
             invoice.invoicer.address,
-            invoice.invoicer.email.as_ref().unwrap_or(&String::new()),
+            invoice.invoicer.email.as_deref().unwrap_or(""),
+            invoice.invoicer.phone.as_deref().unwrap_or(""),
             invoice.number,
             invoice.date,
-            invoice.due_date.as_ref().unwrap_or(&String::new()),
+            invoice.due_date.as_deref().unwrap_or(""),
             invoice.invoicee.name,
-            invoice.invoicee.company.as_ref().unwrap_or(&String::new()),
+            invoice.invoicee.company.as_deref().unwrap_or(""),
             invoice.invoicee.address,
-            invoice.invoicee.email.as_ref().unwrap_or(&String::new()),
+            invoice.invoicee.email.as_deref().unwrap_or(""),
+            invoice.invoicee.phone.as_deref().unwrap_or(""),
             invoice.line_items.iter().enumerate()
                 .map(|(index, item)| {
                     let line_total = item.quantity * item.rate;
@@ -1337,34 +1471,7 @@ impl AppState {
             invoice.notes.as_ref()
                 .map(|n| format!("<div class='notes'><h3>Notes:</h3><p>{}</p></div>", n))
                 .unwrap_or_default(),
-            {
-                let mut payment_html = String::new();
-                if let Some(ref payment_info) = invoice.payment_info {
-                    payment_html.push_str(&format!("<div class='payment'><h3>Payment Information:</h3><p>{}</p>", payment_info));
-
-                    // Add payment image if available
-                    if let Some(ref payment_image_path) = invoice.payment_image_path {
-                        if let Ok(file) = open_file(payment_image_path, false, Some(5)) {
-                            if let Ok(data) = file.read() {
-                                let mime_type = if payment_image_path.ends_with(".png") {
-                                    "image/png"
-                                } else if payment_image_path.ends_with(".jpg") || payment_image_path.ends_with(".jpeg") {
-                                    "image/jpeg"
-                                } else {
-                                    "image/png"
-                                };
-                                let base64_data = general_purpose::STANDARD.encode(&data);
-                                payment_html.push_str(&format!(
-                                    r#"<img src="data:{};base64,{}" alt="Payment QR Code" style="max-width: 200px; margin-top: 1rem; display: block;" />"#,
-                                    mime_type, base64_data
-                                ));
-                            }
-                        }
-                    }
-                    payment_html.push_str("</div>");
-                }
-                payment_html
-            },
+            payment_html,
             embedded_receipts
         )
     }

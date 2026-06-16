@@ -83,7 +83,18 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
     set({ settingsLoading: true, settingsError: null });
     try {
       await invoiceApi.updateSettings(settings);
-      set({ settings, settingsLoading: false });
+      const { currentInvoice } = get();
+      set({
+        settings,
+        settingsLoading: false,
+        currentInvoice: currentInvoice ? {
+          ...currentInvoice,
+          invoicer: settings.invoicer,
+          invoicee: settings.invoicee,
+          payment_info: settings.payment_info,
+          payment_image_path: settings.payment_image_path
+        } : currentInvoice
+      });
     } catch (error) {
       set({ settingsError: error instanceof Error ? error.message : String(error), settingsLoading: false });
       throw error;
@@ -123,8 +134,15 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
     set({ currentInvoiceLoading: true, currentInvoiceError: null });
     try {
       const invoice = await invoiceApi.createInvoice();
+      let latestSettings = get().settings;
+      try {
+        latestSettings = await invoiceApi.getSettings();
+      } catch (error) {
+        set({ settingsError: error instanceof Error ? error.message : String(error) });
+      }
       const { invoices } = get();
       set({ 
+        settings: latestSettings,
         currentInvoice: invoice,
         currentInvoiceLoading: false,
         currentInvoiceVersion: 0,
@@ -495,6 +513,36 @@ export const useInvoiceStore = create<InvoiceStore>((set, get) => ({
     set({ isSaving: true });
     try {
       const path = await invoiceApi.generatePDF();
+      try {
+        const { invoice } = JSON.parse(path) as { invoice?: Invoice };
+        if (invoice) {
+          const { invoices } = get();
+          const index = invoices.findIndex(inv => inv.id === invoice.id);
+          const invoiceSummary = {
+            id: invoice.id,
+            number: invoice.number,
+            name: invoice.name,
+            date: invoice.date,
+            total: invoice.line_items.reduce((sum, item) => {
+              const lineTotal = item.quantity * item.rate;
+              const lineDiscount = lineTotal * (item.discount_percent / 100);
+              return sum + (lineTotal - lineDiscount);
+            }, 0),
+            status: invoice.status
+          };
+
+          set({
+            currentInvoice: invoice,
+            invoices: index === -1
+              ? [...invoices, invoiceSummary]
+              : invoices.map((summary, summaryIndex) => (
+                summaryIndex === index ? invoiceSummary : summary
+              ))
+          });
+        }
+      } catch (error) {
+        console.error('Failed to refresh generated invoice state:', error);
+      }
       set({ isSaving: false });
       return path;
     } catch (error) {
